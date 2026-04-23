@@ -732,6 +732,7 @@ module udf_type_mod
     real(WP), allocatable :: tavg_pru (:, :, :, :)  ! 3  = pu, pv, pw
     real(WP), allocatable :: tavg_uu  (:, :, :, :)  ! 6  = uu, uv, uw, vv, vw, ww
     real(WP), allocatable :: tavg_uuu (:, :, :, :)  ! 10 = uuu, uuv, uuw, uvv, uvw, uww, vvv, vvw, vww, www
+    real(WP), allocatable :: tavg_prdu(:, :, :, :)  ! 9  = pr * dui/dxk
     real(WP), allocatable :: tavg_dudx(:, :, :, :)  ! 9  = dui/dxj
     real(WP), allocatable :: tavg_dudu(:, :, :, :)  ! storage keeps 45 slots for future full extensions
                                                     ! current post-processing uses first 6 symmetric contracted components only

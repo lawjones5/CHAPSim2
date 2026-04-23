@@ -147,7 +147,11 @@ OBJS1 = $(addprefix $(DIR_OBJ)/, \
       poisson_fishpack.o \
       poisson_1stderivcomp_fft2d.o \
       poisson_interface.o \
+<<<<<<< master
+      eq_continuity.o \
+=======
 			eq_continuity.o \
+>>>>>>> master
       bc_convective_outlet.o \
       eq_energy.o \
       eq_mhd.o \

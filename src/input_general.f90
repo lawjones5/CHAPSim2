@@ -529,10 +529,7 @@ contains
           if(domain(i)%ibcx_nominal(1, 1) == IBC_DATABASE) then
             domain(i)%ibcx_nominal(1, 2:3) = IBC_DATABASE
             domain(i)%ibcx_nominal(1, 4) = IBC_NEUMANN
-<<<<<<< master
-=======
             !domain(i)%ibcx_nominal(1, 5) = IBC_DIRICHLET
->>>>>>> master
           end if
           !if(domain(i)%ibcx_nominal(2, 1) == IBC_CONVECTIVE) then
           !  domain(i)%ibcx_nominal(2, 2:3) = IBC_CONVECTIVE

@@ -78,7 +78,7 @@ module parameters_constant_mod
 !----------------------------------------------------------------------------------------------------------
 ! user defined methods
 !----------------------------------------------------------------------------------------------------------
-  logical, parameter :: is_IO_off = .false.         ! true for code performance evaluation without IO
+  logical, parameter :: is_IO_off = .true.         ! true for code performance evaluation without IO
   !logical, parameter :: is_strong_coupling = .true. ! true = RK(rhoh, g)); false = RK(rhoh) + RK(g)
   !logical, parameter :: is_drhodt_chain = .false.   ! false = (d1-d0)/dt; true = d(rhoh)/dt / (drhoh/drho)
   !logical :: is_two_potential_splitting ! true = stable solver but twice fft 

@@ -135,7 +135,7 @@ contains
 !----------------------------------------------------------------------------------------------------------
 ! create history file for total variables
 !----------------------------------------------------------------------------------------------------------
-    if(nrank == 0) then
+    if(nrank == 0 .and. (.not. is_IO_off)) then
       call generate_pathfile_name(flname, dm%idom, trim(fl_bulk), dir_moni, 'log')
       inquire(file = trim(flname), exist = exist)
       if (exist) then
@@ -247,6 +247,7 @@ contains
 !----------------------------------------------------------------------------------------------------------
 ! create probe history file for flow
 !----------------------------------------------------------------------------------------------------------
+    if (.not. is_IO_off) then
     do i = 1, dm%proben
       if(.not. dm%probe_is_in(i)) cycle 
 
@@ -268,6 +269,7 @@ contains
         close(myunit)
       end if
     end do
+    end if
     call mpi_barrier(MPI_COMM_WORLD, ierror)
 
     if(nrank == 0) call Print_debug_end_msg()

@@ -219,7 +219,7 @@ contains
     case (ICARTESIAN)
       allocate(x1(nnd_visu(1)), y1(nnd_visu(2)), z1(nnd_visu(3)))
       call build_cartesian_coords(dm, x1, y1, z1)
-      call write_mesh_cartesian(dm, nnd_visu, x1, y1, z1)
+      if(.not. is_IO_off) call write_mesh_cartesian(dm, nnd_visu, x1, y1, z1)
       deallocate(x1, y1, z1)
 
     case (ICYLINDRICAL)
@@ -227,7 +227,7 @@ contains
       allocate(y3(nnd_visu(1),nnd_visu(2),nnd_visu(3)))
       allocate(z3(nnd_visu(1),nnd_visu(2),nnd_visu(3)))
       call build_cylindrical_to_cart(dm, x3, y3, z3)
-      call write_mesh_cylindrical(dm, nnd_visu, x3, y3, z3)
+      if(.not. is_IO_off) call write_mesh_cylindrical(dm, nnd_visu, x3, y3, z3)
       deallocate(x3, y3, z3)
 
     case default

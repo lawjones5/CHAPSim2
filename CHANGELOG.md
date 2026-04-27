@@ -45,9 +45,8 @@
   populated in `STATS_READ` mode, not only accumulated in `STATS_TAVG` mode.
 - Fixed the statistics averaging count after restart by using
   `iter - dm%stat_istart` instead of adding one extra sample.
-- Fixed `is_IO_off` behaviour so initial visualisation, outlet-record output,
-  folder creation, and initial thermo/flow visualisation are skipped when I/O is
-  disabled.
+- Fixed `is_IO_off` behaviour so initial visualisation, mesh/check-file output,
+  monitor/probe history files, outlet-record output, folder creation, and
+  initial thermo/flow visualisation are skipped when I/O is disabled.
 - Fixed the Makefile object list by removing stale merge-conflict markers around
   `eq_continuity.o`.
-

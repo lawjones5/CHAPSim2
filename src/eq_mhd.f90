@@ -11,10 +11,11 @@ module mhd_mod
 contains
 !==========================================================================================================
   subroutine initialise_mhd(fl, mh, dm)
-    use udf_type_mod
+    use boundary_conditions_mod
     use math_mod
     use mpi_mod
     use print_msg_mod
+    use udf_type_mod
     !use visualisation_field_mod
     implicit none 
     type(t_domain), intent(in)    :: dm
@@ -139,6 +140,8 @@ contains
     mh%fbcy_ep(:, :, :) = ZERO
     mh%fbcz_ep(:, :, :) = ZERO
 
+    if(dm%icase == ICASE_PIPE) call update_fbcy_cc_mhd_halo(mh, dm)
+
     !call write_visu_mhd(mh, fl, dm, 'initial_mhd')
 
     if(nrank==0) call Print_debug_end_msg()
@@ -147,10 +150,11 @@ contains
 
 !==========================================================================================================
   subroutine cross_production_mhd(fl, mh, ab_cross_x, ab_cross_y, ab_cross_z, str, dm) ! to add cylindrical
-    use udf_type_mod
+    use boundary_conditions_mod
+    use decomp_2d
     use operations
     use print_msg_mod
-    use decomp_2d
+    use udf_type_mod
     implicit none 
     type(t_flow), intent(in) :: fl
     type(t_mhd),  intent(in) :: mh
@@ -299,6 +303,10 @@ contains
     apcc_xpencil = ax
     call transpose_x_to_y (apcc_xpencil, apcc_ypencil, dm%dpcc)
     call Get_y_midp_C2P_3D(apcc_ypencil, appc_ypencil, dm, iacc, ibcy_ax(:), fbcy_ax(:, :, :))
+    if(dm%icase == ICASE_PIPE) then
+      call axis_mirror_fbcy(appc_ypencil, IPENCIL(2), fbcy_ax, dm%knc_sym, dm%dppc, is_odd = .false., &
+                            axis_mode = AXIS_RECON_M0, assign_axis_to_var = .true., nr = 0)
+    end if
     
     call transpose_y_to_x (appc_ypencil, appc_xpencil, dm%dppc)                            
     call Get_x_midp_P2C_3D(appc_xpencil, acpc_xpencil, dm, iacc, ibcx_ax(:))
@@ -318,6 +326,10 @@ contains
     apcc_xpencil = bx
     call transpose_x_to_y (apcc_xpencil, apcc_ypencil, dm%dpcc)
     call Get_y_midp_C2P_3D(apcc_ypencil, appc_ypencil, dm, iacc, ibcy_bx(:), fbcy_bx(:, :, :))
+    if(dm%icase == ICASE_PIPE) then
+      call axis_mirror_fbcy(appc_ypencil, IPENCIL(2), fbcy_bx, dm%knc_sym, dm%dppc, is_odd = .false., &
+                            axis_mode = AXIS_RECON_M0, assign_axis_to_var = .true., nr = 0)
+    end if
     call transpose_y_to_x (appc_ypencil, appc_xpencil, dm%dppc)                            
     call Get_x_midp_P2C_3D(appc_xpencil, acpc_xpencil, dm, iacc, ibcx_bx(:))
     call transpose_x_to_y (acpc_xpencil, acpc_ypencil, dm%dcpc)
@@ -368,6 +380,10 @@ contains
     accp_xpencil = az
     call transpose_x_to_y (accp_xpencil, accp_ypencil, dm%dccp)
     call Get_y_midp_C2P_3D(accp_ypencil, acpp_ypencil, dm, iacc, ibcy_az(:), fbcy_az(:, :, :)) 
+    if(dm%icase == ICASE_PIPE) then
+      call axis_mirror_fbcy(acpp_ypencil, IPENCIL(2), fbcy_az, dm%knc_sym, dm%dcpp, is_odd = .true., &
+                            axis_mode = AXIS_RECON_M1, assign_axis_to_var = .true., nr = 0, opt_dz = dm%h(3))
+    end if
     call transpose_y_to_z (acpp_ypencil, acpp_zpencil, dm%dcpp)
     call Get_z_midp_P2C_3D(acpp_zpencil, acpc_zpencil, dm, iacc, ibcz_az(:))
     call transpose_z_to_y (acpc_zpencil, acpc_ypencil, dm%dcpc)
@@ -384,6 +400,10 @@ contains
     accp_xpencil = bz
     call transpose_x_to_y (accp_xpencil, accp_ypencil, dm%dccp)
     call Get_y_midp_C2P_3D(accp_ypencil, acpp_ypencil, dm, iacc, ibcy_bz(:), fbcy_bz(:, :, :)) 
+    if(dm%icase == ICASE_PIPE) then
+      call axis_mirror_fbcy(acpp_ypencil, IPENCIL(2), fbcy_bz, dm%knc_sym, dm%dcpp, is_odd = .true., &
+                            axis_mode = AXIS_RECON_M1, assign_axis_to_var = .true., nr = 0, opt_dz = dm%h(3))
+    end if
     call transpose_y_to_z (acpp_ypencil, acpp_zpencil, dm%dcpp)
     call Get_z_midp_P2C_3D(acpp_zpencil, acpc_zpencil, dm, iacc, ibcz_bz(:))
     call transpose_z_to_y (acpc_zpencil, acpc_ypencil, dm%dcpc)
@@ -416,11 +436,12 @@ contains
   end subroutine 
 !==========================================================================================================
   subroutine compute_Lorentz_force(fl, mh, dm)
-    use udf_type_mod
-    use operations
-    use decomp_2d
+    use boundary_conditions_mod
     use continuity_eq_mod
+    use decomp_2d
+    use operations
     use poisson_interface_mod
+    use udf_type_mod
     use visualisation_field_mod
     implicit none
 !----------------------------------------------------------------------------------------------------------
@@ -441,6 +462,7 @@ contains
     real(WP), dimension(dm%dccp%ysz(1), dm%dccp%ysz(2), dm%dccp%ysz(3)) :: accp_ypencil
     real(WP), dimension(dm%dccc%zsz(1), dm%dccc%zsz(2), dm%dccc%zsz(3)) :: accc_zpencil
     real(WP), dimension(dm%dccp%zsz(1), dm%dccp%zsz(2), dm%dccp%zsz(3)) :: accp_zpencil
+    real(WP), dimension(dm%dcpc%ysz(1), 4, dm%dcpc%ysz(3))              :: fbcy_c4c
     !
     mh%iteration = fl%iteration
 !----------------------------------------------------------------------------------------------------------
@@ -466,6 +488,7 @@ contains
 ! solving the Poisson equation for the electric potential
 !----------------------------------------------------------------------------------------------------------
     call solve_fft_poisson(mh%ep, dm)
+    if(dm%icase == ICASE_PIPE) call update_fbcy_cc_mhd_halo(mh, dm)
 #ifdef DEBUG_STEPS
     call write_visu_any3darray(mh%ep, 'ep2', 'debug', dm%dccc, dm, fl%iteration)
 #endif
@@ -476,6 +499,11 @@ contains
     mh%jx = - apcc_xpencil + ub_cross_x
     call transpose_x_to_y (mh%ep, accc_ypencil, dm%dccc)
     call Get_y_1der_C2P_3D(accc_ypencil, acpc_ypencil, dm, dm%iAccuracy, mh%ibcy_ep, mh%fbcy_ep)
+    fbcy_c4c = MAXP
+    if(dm%icase == ICASE_PIPE) then
+      call axis_mirror_fbcy(acpc_ypencil, IPENCIL(2), fbcy_c4c, dm%knc_sym, dm%dcpc, is_odd = .true., &
+                            axis_mode = AXIS_RECON_M1, assign_axis_to_var = .true., nr = 0, opt_dz = dm%h(3))
+    end if
     call transpose_y_to_x (acpc_ypencil, acpc_xpencil, dm%dcpc)
     mh%jy = - acpc_xpencil + ub_cross_y
     call transpose_y_to_z (accc_ypencil, accc_zpencil, dm%dccc)
@@ -483,6 +511,7 @@ contains
     call transpose_z_to_y (accp_zpencil, accp_ypencil, dm%dccp)
     call transpose_y_to_x (accp_ypencil, accp_xpencil, dm%dccp)
     mh%jz = - accp_xpencil + ub_cross_z
+    if(dm%icase == ICASE_PIPE) call update_fbcy_cc_mhd_halo(mh, dm)
 #ifdef DEBUG_STEPS
     call write_visu_any3darray(mh%jx, 'jx', 'debug', dm%dpcc, dm, fl%iteration)
     call write_visu_any3darray(mh%jy, 'jy', 'debug', dm%dcpc, dm, fl%iteration)
@@ -508,11 +537,11 @@ contains
 
 !==========================================================================================================
   subroutine check_current_conservation(mh, dm)
+    use continuity_eq_mod
+    use decomp_2d
     use find_max_min_ave_mod
     use udf_type_mod
-    use decomp_2d
     use wtformat_mod
-    use continuity_eq_mod
     implicit none
     type(t_mhd),  intent(in) :: mh
     type(t_domain), intent(in) :: dm

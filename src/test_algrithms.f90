@@ -1,8 +1,8 @@
 
 ! ref: https://en.wikipedia.org/wiki/Burgers%27_equation
 module burgers_eq_mod
-  use precision_mod
   use parameters_constant_mod
+  use precision_mod
 
   integer, parameter :: ICASE_BURGERS1D                 = 11
   integer, parameter :: ICASE_BURGERS1D_VISCOUS         = 12
@@ -24,10 +24,10 @@ module burgers_eq_mod
 
 contains
   subroutine  initialise_burgers_flow(dm, ux, uy, uz, p)
-    use udf_type_mod, only : t_domain, t_flow
+    use input_general_mod
     use math_mod, only : sin_wp
     use parameters_constant_mod!, only : HALF, ZERO, SIXTEEN, TWO
-    use input_general_mod
+    use udf_type_mod, only : t_domain, t_flow
     implicit none
 
     type(t_domain), intent(inout)   :: dm
@@ -124,12 +124,12 @@ contains
   end subroutine initialise_burgers_flow
 
   subroutine Compute_burgers_rhs(fl, dm, isub)
-    use udf_type_mod
-    use parameters_constant_mod
-    use operations
-    use input_general_mod
     use boundary_conditions_mod
     use decomp_2d
+    use input_general_mod
+    use operations
+    use parameters_constant_mod
+    use udf_type_mod
     implicit none
 
     type(t_flow),   intent(inout) :: fl
@@ -301,13 +301,13 @@ contains
   end subroutine Compute_burgers_rhs
 !==========================================================================================================
   subroutine Validate_burgers_error(fl, dm)
-    use udf_type_mod,            only : t_flow, t_domain
-    use parameters_constant_mod
-    use operations
-    use math_mod
     use input_general_mod
-    use mpi_mod
     use io_files_mod
+    use math_mod
+    use mpi_mod
+    use operations
+    use parameters_constant_mod
+    use udf_type_mod,            only : t_flow, t_domain
     implicit none
 
     type(t_flow),   intent(inout) :: fl
@@ -399,14 +399,14 @@ contains
   end subroutine 
   !==========================================================================================================
   subroutine Plot_burgers_profile(fl, dm, iter)
-    use udf_type_mod,            only : t_flow, t_domain
-    use parameters_constant_mod
     use input_general_mod
-    use operations
-    use math_mod
-    use typeconvert_mod
-    use mpi_mod
     use io_files_mod
+    use math_mod
+    use mpi_mod
+    use operations
+    use parameters_constant_mod
+    use typeconvert_mod
+    use udf_type_mod,            only : t_flow, t_domain
     implicit none
 
     type(t_flow),   intent(inout) :: fl
@@ -461,13 +461,13 @@ contains
   end subroutine 
 !==========================================================================================================
   subroutine Solve_burgers_eq_iteration
-    use parameters_constant_mod
-    use mpi_mod
-    use vars_df_mod
-    use solver_tools_mod
-    use thermo_info_mod
     use code_performance_mod
     use input_general_mod
+    use mpi_mod
+    use parameters_constant_mod
+    use solver_tools_mod
+    use thermo_info_mod
+    use vars_df_mod
     implicit none
 
     logical :: is_flow   = .false.
@@ -560,13 +560,13 @@ end module
 !> \param[out]    none          NA
 !_______________________________________________________________________________
 subroutine Test_algorithms()
-  use vars_df_mod
+  use boundary_conditions_mod
   use burgers_eq_mod
-  use tridiagonal_matrix_algorithm
+  use geometry_mod
   use mpi_mod
   use operations
-  use boundary_conditions_mod
-  use geometry_mod
+  use tridiagonal_matrix_algorithm
+  use vars_df_mod
   implicit none
 
   logical :: is_TDMA = .false.
@@ -602,11 +602,11 @@ end subroutine
 
 
 subroutine test_poisson(dm)
-  use udf_type_mod
-  use poisson_interface_mod
+  use boundary_conditions_mod
   use math_mod
   use operations
-  use boundary_conditions_mod
+  use poisson_interface_mod
+  use udf_type_mod
   
 ! based on TGV3D mesh
   type(t_domain), intent(inout) :: dm

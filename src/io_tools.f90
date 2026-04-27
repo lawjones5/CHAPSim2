@@ -1,9 +1,9 @@
 module io_tools_mod
-  use print_msg_mod
-  use parameters_constant_mod
   use decomp_2d_io
-  use udf_type_mod
   use io_files_mod
+  use parameters_constant_mod
+  use print_msg_mod
+  use udf_type_mod
   implicit none
 
   !----------------------------------------------------------------------------------------------------------
@@ -129,8 +129,8 @@ contains
   
 !==========================================================================================================
   subroutine initialise_decomp_io(dm)
-    use udf_type_mod
     use decomp_2d_io
+    use udf_type_mod
     implicit none 
     type(t_domain), intent(in) :: dm
     

@@ -1,6 +1,6 @@
 module eq_scalar_transport
-  use operations
   use decomp_2d
+  use operations
   use wrt_debug_field_mod
   implicit none
 
@@ -42,12 +42,11 @@ contains
   end subroutine
 !==========================================================================================================
   subroutine Compute_scalar_rhs(ux, uy, uz, tm, dm, isub)
-    use operations
-    use udf_type_mod
-    use thermo_info_mod
     use boundary_conditions_mod
-    use wrt_debug_field_mod
     use cylindrical_rn_mod
+    use operations
+    use thermo_info_mod
+    use udf_type_mod
     use wrt_debug_field_mod
     implicit none
     ! arguments
@@ -104,7 +103,10 @@ contains
     call Get_x_midp_C2P_3D(tm%tTemp, tTemp_pcc_xpencil, dm, dm%iAccuracy, dm%ibcx_ftp(:), fbcx_4cc ) ! for d(g_x h_pcc))/dy
     call transpose_x_to_y (tm%tTemp, Ttemp_ccc_ypencil, dm%dccc)                     !accc_ypencil = hEnth_ypencil
     call Get_y_midp_C2P_3D(Ttemp_ccc_ypencil, tTemp_cpc_ypencil, dm, dm%iAccuracy, dm%ibcy_ftp(:), fbcy_c4c)! for d(g_y h_cpc)/dy
-    call axis_estimating_radial_xpx(tTemp_cpc_ypencil, dm%dcpc, IPENCIL(2), dm, IDIM(1))
+    if(dm%icase == ICASE_PIPE) then
+      call axis_mirror_fbcy(tTemp_cpc_ypencil, IPENCIL(2), fbcy_c4c, dm%knc_sym, dm%dcpc, is_odd = .false., &
+                            axis_mode = AXIS_RECON_M0, assign_axis_to_var = .true., nr = 0)
+    end if
     call transpose_y_to_z (Ttemp_ccc_ypencil, Ttemp_ccc_zpencil, dm%dccc) !ccc_zpencil = hEnth_zpencil
     call Get_z_midp_C2P_3D(Ttemp_ccc_zpencil, tTemp_ccp_zpencil, dm, dm%iAccuracy, dm%ibcz_ftp(:), fbcz_cc4) ! for d(g_z h_ccp)/dz
 !----------------------------------------------------------------------------------------------------------
@@ -121,7 +123,10 @@ contains
     call Get_x_midp_C2P_3D(tm%kCond, kCond_pcc_xpencil, dm, dm%iAccuracy, dm%ibcx_ftp(:), fbcx_4cc) ! for d(k_pcc * (dT/dx) )/dx
     call transpose_x_to_y (tm%kCond, accc_ypencil, dm%dccc)  ! for k d2(T)/dy^2
     call Get_y_midp_C2P_3D(accc_ypencil,  kCond_cpc_ypencil, dm, dm%iAccuracy, dm%ibcy_ftp(:), fbcy_c4c)
-    call axis_estimating_radial_xpx(kCond_cpc_ypencil, dm%dcpc, IPENCIL(2), dm, IDIM(1))
+    if(dm%icase == ICASE_PIPE) then
+      call axis_mirror_fbcy(kCond_cpc_ypencil, IPENCIL(2), fbcy_c4c, dm%knc_sym, dm%dcpc, is_odd = .false., &
+                            axis_mode = AXIS_RECON_M0, assign_axis_to_var = .true., nr = 0)
+    end if
     call transpose_y_to_z (accc_ypencil,  kCond_ccc_zpencil, dm%dccc) 
     call Get_z_midp_C2P_3D(kCond_ccc_zpencil, kCond_ccp_zpencil, dm, dm%iAccuracy, dm%ibcz_ftp(:), fbcz_cc4)
 !----------------------------------------------------------------------------------------------------------
@@ -225,6 +230,10 @@ contains
     !------bulk------
     call get_fbcy_iTh(dm%ibcy_Tm, dm, fbcy_c4c, tm, opt_k=kCond_cpc_ypencil)
     call Get_y_1der_C2P_3D(tTemp_ccc_ypencil, acpc_ypencil, dm, dm%iAccuracy, dm%ibcy_Tm, fbcy_c4c)
+    if(dm%icase == ICASE_PIPE) then
+      call axis_mirror_fbcy(acpc_ypencil, IPENCIL(2), fbcy_c4c, dm%knc_sym, dm%dcpc, is_odd = .true., &
+                            axis_mode = AXIS_RECON_M1, assign_axis_to_var = .true., nr = 0, opt_dz = dm%h(3))
+    end if
     acpc_ypencil = acpc_ypencil * kCond_cpc_ypencil
 #ifdef DEBUG_STEPS
     write(*,*) 'diy-dT', acpc_ypencil(4, 1:4, 4)
@@ -292,12 +301,12 @@ contains
 !==========================================================================================================
 !==========================================================================================================
   subroutine Solve_energy_eq(fl, tm, dm, isub)
-    use udf_type_mod
-    use thermo_info_mod 
-    use solver_tools_mod
-    use boundary_conditions_mod
     use bc_convective_outlet_mod
+    use boundary_conditions_mod
     use convert_primary_conservative_mod
+    use solver_tools_mod
+    use thermo_info_mod
+    use udf_type_mod
     implicit none
     ! arguments
     type(t_domain), intent(inout)    :: dm

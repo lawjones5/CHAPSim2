@@ -28,20 +28,21 @@ subroutine initialise_chapsim
   use code_performance_mod
   use continuity_eq_mod
   use domain_decomposition_mod
-  use io_files_mod
+  use eq_momentum_mod
   use flow_thermo_initialiasation
   use geometry_mod
   use input_general_mod
+  use io_field_interpolation_mod
+  use io_files_mod
+  use mhd_mod
   use mpi_mod
   use operations
+  use parameters_constant_mod, only : is_IO_off
   use poisson_interface_mod
   use solver_tools_mod
   use thermo_info_mod
   use visualisation_field_mod
-  use eq_momentum_mod
   use wrt_debug_field_mod
-  use mhd_mod
-  use io_field_interpolation_mod
   implicit none
   integer :: i
 
@@ -122,9 +123,11 @@ subroutine initialise_chapsim
     end if
     !call Solve_momentum_eq(flow(i), domain(i), 0)
     call Check_element_mass_conservation(flow(i), domain(i), opt_isub=0, opt_str='init-div-free') 
-    call write_visu_flow(flow(i), domain(i))
-    if(domain(i)%is_mhd) call write_visu_mhd(mhd(i), flow(i), domain(i))
-    if(domain(i)%is_thermo)call write_visu_thermo(thermo(i), flow(i), domain(i))
+    if(.not. is_IO_off) then
+      call write_visu_flow(flow(i), domain(i))
+      if(domain(i)%is_mhd) call write_visu_mhd(mhd(i), flow(i), domain(i))
+      if(domain(i)%is_thermo)call write_visu_thermo(thermo(i), flow(i), domain(i))
+    end if
 #ifdef DEBUG_STEPS
     if(domain(i)%is_thermo) then
       call wrt_3d_pt_debug(flow(i)%gx, domain(i)%dpcc, flow(i)%iteration, 0, 'gx@bf solv') ! debug_ww
@@ -190,27 +193,27 @@ end subroutine initialise_chapsim
 !_______________________________________________________________________________
 subroutine Solve_eqs_iteration
   !use iso_fortran_env
-  use solver_tools_mod!,   only : Check_cfl_diffusion, Check_cfl_convection
   use continuity_eq_mod
+  use solver_tools_mod!,   only : Check_cfl_diffusion, Check_cfl_convection
   !use poisson_mod
+  use boundary_conditions_mod
+  use code_performance_mod
   use eq_energy_mod
   use eq_momentum_mod
-  use flow_thermo_initialiasation 
-  use code_performance_mod
-  use thermo_info_mod
-  use vars_df_mod
-  use input_general_mod
-  use mpi_mod
-  use wtformat_mod
-  use visualisation_field_mod
-  use io_monitor_mod
-  use io_tools_mod
-  use io_restart_mod
-  use statistics_mod
-  use typeconvert_mod
-  use boundary_conditions_mod
   use find_max_min_ave_mod
+  use flow_thermo_initialiasation 
+  use input_general_mod
+  use io_monitor_mod
+  use io_restart_mod
+  use io_tools_mod
   use mhd_mod
+  use mpi_mod
+  use statistics_mod
+  use thermo_info_mod
+  use typeconvert_mod
+  use vars_df_mod
+  use visualisation_field_mod
+  use wtformat_mod
   implicit none
 
   logical, allocatable :: is_flow  (:)
@@ -305,7 +308,7 @@ subroutine Solve_eqs_iteration
       !----------------------------------------------------------------------------------------------------------
       !  append and write out outlet data every real-iteration (not RK sub)
       !----------------------------------------------------------------------------------------------------------
-      if(is_flow(i) .and. domain(i)%is_record_xoutlet .and. iter >= domain(i)%ndbstart) then
+      if((.not. is_IO_off) .and. is_flow(i) .and. domain(i)%is_record_xoutlet .and. iter >= domain(i)%ndbstart) then
         if(is_timing_iter) call call_cpu_time(CPU_TIME_ITER_SOLVER, iteration, niter, iter)
         call write_instantaneous_xoutlet(flow(i), domain(i))
         if(is_timing_iter) call call_cpu_time(CPU_TIME_ITER_IO, iteration, niter, iter)
@@ -467,8 +470,8 @@ end subroutine Solve_eqs_iteration
 
 
 subroutine Finalise_chapsim
-  use mpi_mod
   use code_performance_mod
+  use mpi_mod
   implicit none
 
   call call_cpu_time(CPU_TIME_CODE_END, 0, 0)

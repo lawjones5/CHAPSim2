@@ -1,6 +1,6 @@
 module bc_convective_outlet_mod
-  use parameters_constant_mod
   use decomp_2d
+  use parameters_constant_mod
   use udf_type_mod
   implicit none 
 
@@ -24,9 +24,9 @@ module bc_convective_outlet_mod
 
 !==========================================================================================================
   subroutine get_convective_outlet_velocity(dm, uxdx)
-    use wtformat_mod
     use math_mod
     use print_msg_mod
+    use wtformat_mod
     implicit none
     ! arguments
     type(t_domain), intent(in) :: dm
@@ -224,11 +224,11 @@ module bc_convective_outlet_mod
   ! end subroutine
   !==========================================================================================================
   subroutine enforce_domain_mass_balance_dyn_fbc(drhodt, dm)
-    use wtformat_mod
     use bc_dirichlet_mod
-    use find_max_min_ave_mod
     use cylindrical_rn_mod
+    use find_max_min_ave_mod
     use solver_tools_mod
+    use wtformat_mod
     implicit none
     real(WP), dimension(:,:,:), intent(in) :: drhodt
     type(t_domain), intent(inout) :: dm
@@ -363,8 +363,8 @@ module bc_convective_outlet_mod
 !==========================================================================================================
   subroutine correct_fbcx_convective_outlet_flow(fl, dm, isub)
     use bc_dirichlet_mod
-    use convert_primary_conservative_mod
     use continuity_eq_mod
+    use convert_primary_conservative_mod
     implicit none
     ! arguments
     type(t_flow),   intent(inout) :: fl
@@ -502,8 +502,8 @@ module bc_convective_outlet_mod
   end subroutine
 !==========================================================================================================
   subroutine compute_convective_outlet_flow(fl, dm, isub)
-    use convert_primary_conservative_mod
     use bc_dirichlet_mod
+    use convert_primary_conservative_mod
     implicit none
     ! arguments
     type(t_flow),   intent(inout) :: fl
@@ -529,8 +529,8 @@ module bc_convective_outlet_mod
 
   !==========================================================================================================
   subroutine correct_convective_outlet_flow(fl, dm, isub)
-    use convert_primary_conservative_mod
     use bc_dirichlet_mod
+    use convert_primary_conservative_mod
     implicit none
     ! arguments
     type(t_flow),   intent(inout) :: fl

@@ -25,9 +25,9 @@
 !>
 !==========================================================================================================
 module geometry_mod
-  use vars_df_mod, only : domain
   use precision_mod
   use print_msg_mod
+  use vars_df_mod, only : domain
   implicit none
 
   integer, parameter :: NDAMP_DEFAULT=8
@@ -44,9 +44,9 @@ contains
   ! Powerlaw is not a suitable mesh stretching method, but it's easily degraded to uniform
   ! this is only for debug of stretching grids. 
     use math_mod
-    use udf_type_mod
-    use typeconvert_mod
     use parameters_constant_mod
+    use typeconvert_mod
+    use udf_type_mod
     implicit none
     character(len = *), intent(in) :: str
     integer,            intent(in) :: n
@@ -183,9 +183,9 @@ contains
 
   subroutine Buildup_grid_mapping_1D_tanh (str, n, dm, y, mp, opt_yp)
     use math_mod
-    use udf_type_mod
     use parameters_constant_mod
     use typeconvert_mod
+    use udf_type_mod
     implicit none
     character(len = *), intent(in) :: str
     integer,            intent(in) :: n
@@ -334,8 +334,8 @@ contains
 !_______________________________________________________________________________
   subroutine Buildup_grid_mapping_1D_3fmd (str, n, dm, y, mp, opt_yp)
     use math_mod
-    use udf_type_mod
     use parameters_constant_mod
+    use udf_type_mod
     implicit none
     character(len = *), intent(in) :: str
     integer,            intent(in) :: n
@@ -488,15 +488,14 @@ contains
   end subroutine build_cosine_damping
 !==========================================================================================================
   subroutine Buildup_geometry_mesh_info (dm)
-    use mpi_mod
-    use math_mod
-    use parameters_constant_mod
-    use udf_type_mod
-    use typeconvert_mod
-    use mpi_mod
-    use wtformat_mod
-    use io_files_mod
     use find_max_min_ave_mod
+    use io_files_mod
+    use math_mod
+    use mpi_mod
+    use parameters_constant_mod
+    use typeconvert_mod
+    use udf_type_mod
+    use wtformat_mod
     implicit none
 
     type(t_domain), intent(inout) :: dm

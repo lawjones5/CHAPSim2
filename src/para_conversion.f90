@@ -3,11 +3,12 @@ module convert_primary_conservative_mod
  contains 
 
   subroutine convert_primary_conservative(dm, dens, itag, iloc, qx, qy, qz, gx, gy, gz)
-    use udf_type_mod
-    use operations
-    use decomp_2d
-    use parameters_constant_mod
+    use boundary_conditions_mod
     use cylindrical_rn_mod
+    use decomp_2d
+    use operations
+    use parameters_constant_mod
+    use udf_type_mod
     implicit none
     type(t_domain), intent(inout)   :: dm
     integer, intent(in) :: itag
@@ -62,7 +63,10 @@ module convert_primary_conservative_mod
     call transpose_x_to_y(dens, d_ccc_ypencil, dm%dccc)
     fbcy_c4c(:, :, :) = dm%fbcy_ftp(:, :, :)%d
     call Get_y_midp_C2P_3D (d_ccc_ypencil, d_cpc_ypencil, dm, dm%iAccuracy, dm%ibcy_ftp, fbcy_c4c)
-    call axis_estimating_radial_xpx(d_cpc_ypencil, dm%dcpc, IPENCIL(2), dm, IDIM(1)) 
+    if(dm%icase == ICASE_PIPE) then
+      call axis_mirror_fbcy(d_cpc_ypencil, IPENCIL(2), fbcy_c4c, dm%knc_sym, dm%dcpc, is_odd = .false., &
+                            axis_mode = AXIS_RECON_M0, assign_axis_to_var = .true., nr = 0)
+    end if
     if(iloc == IBLK .or. iloc == IALL) then
       if(itag == IQ2G) then
         call transpose_x_to_y(qy, acpc_ypencil, dm%dcpc)

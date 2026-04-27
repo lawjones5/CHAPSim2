@@ -99,9 +99,9 @@ module fft2decomp_interface_mod
 contains
 !==========================================================================================================
   subroutine build_up_fft2decomp_interface(dm)
-    use udf_type_mod
-    use parameters_constant_mod
     use operations
+    use parameters_constant_mod
+    use udf_type_mod
     implicit none
     type(t_domain), intent(in) :: dm
     integer :: j, iaccu
@@ -430,8 +430,8 @@ subroutine inversion5_v1(aaa_in,eee,spI)
   !use var
   !use mpi
   !use dbg_schemes, only: abs_prec
-  use math_mod, only: cx, rl, iy
   use fft2decomp_interface_mod
+  use math_mod, only: cx, rl, iy
 
   implicit none
 
@@ -575,8 +575,8 @@ subroutine inversion5_v2(aaa,eee,spI)
   !use var
   !use MPI
   !use dbg_schemes, only: abs_prec
-  use math_mod, only: cx, rl, iy
   use fft2decomp_interface_mod
+  use math_mod, only: cx, rl, iy
 
   implicit none
 
@@ -3497,8 +3497,8 @@ contains
     !use variables
     use decomp_2d_fft
     !use dbg_schemes, only: sin_prec, cos_prec
-    use math_mod, only: cx, rl, iy
     use fft2decomp_interface_mod
+    use math_mod, only: cx, rl, iy
 
     implicit none
 
@@ -4263,8 +4263,8 @@ contains
   end subroutine matrice_refinement
 !=====================================
 subroutine avg3d (var, avg)
-  use decomp_2d_mpi
   use decomp_2d, only: xsize, xend
+  use decomp_2d_mpi
   !use param
   !use dbg_schemes, only: sqrt_prec
   !use variables, only: nx,ny,nz,nxm,nym,nzm

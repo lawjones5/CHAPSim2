@@ -36,8 +36,8 @@ contains
 end module util_mod
 !==========================================================================================================
 module input_general_mod
-  use print_msg_mod
   use parameters_constant_mod
+  use print_msg_mod
   implicit none
 
   logical :: is_prerun, is_postprocess
@@ -280,15 +280,15 @@ contains
 !> \param[out]    none          NA
 !==========================================================================================================
   subroutine Read_input_parameters
-    use wtformat_mod
-    use mpi_mod
-    use parameters_constant_mod
-    use vars_df_mod
-    use thermo_info_mod
     use boundary_conditions_mod
     use code_performance_mod
     use EvenOdd_mod
+    use mpi_mod
+    use parameters_constant_mod
+    use thermo_info_mod
     use util_mod
+    use vars_df_mod
+    use wtformat_mod
     implicit none
     character(len = 18) :: flinput = 'input_chapsim.ini'
     integer, parameter :: IOMSG_LEN = 200
@@ -1012,8 +1012,9 @@ contains
     if(is_any_energyeq) then
       do i = 1, nxdomain
         thermo(i)%is_rhoh_compensated = .false.
-        if(domain(i)%ibcy_nominal(1, 5) /= IBC_DIRICHLET .or. &
-           domain(i)%ibcy_nominal(2, 5) /= IBC_DIRICHLET) then
+        if(thermo(i)%inittype /= INIT_RESTART .and. &
+           (domain(i)%ibcy_nominal(1, 5) /= IBC_DIRICHLET .or. &
+            domain(i)%ibcy_nominal(2, 5) /= IBC_DIRICHLET)) then
            thermo(i)%inittype = INIT_GVCONST
         end if
         if(domain(i)%ibcx_nominal(1, 1) == IBC_PERIODIC .and. &
@@ -1144,11 +1145,11 @@ end module
 !==========================================================================================================
 !==========================================================================================================
 module apx_prerun_mod
-  use parameters_constant_mod
-  use math_mod
   use input_general_mod
-  use wtformat_mod
+  use math_mod
   use mpi_mod
+  use parameters_constant_mod
+  use wtformat_mod
   implicit none
 
 

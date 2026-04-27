@@ -25,11 +25,11 @@
 !>
 !==========================================================================================================
 module thermo_info_mod
+  use mpi_mod
   use parameters_constant_mod
+  use print_msg_mod
   use udf_type_mod
   use wtformat_mod
-  use mpi_mod
-  use print_msg_mod
   implicit none
 
   integer, save :: N_FUNC2TABLE = 1024
@@ -1233,9 +1233,9 @@ contains
 
 !==========================================================================================================
   subroutine initialise_thermal_properties(fl, tm, dm)
+    use find_max_min_ave_mod
     use random_number_generation_mod
     use udf_type_mod
-    use find_max_min_ave_mod
     implicit none
     !
     type(t_flow),   intent(inout) :: fl
@@ -1453,8 +1453,8 @@ contains
   end subroutine Buildup_thermo_mapping_relations
 
   function get_qw_ramp_factor(iter, istt, iend) result(framp)
-    use parameters_constant_mod
     use math_mod
+    use parameters_constant_mod
     implicit none
     integer, intent(in) :: iter, istt, iend
     real(WP) :: framp

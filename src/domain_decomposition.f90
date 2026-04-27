@@ -1,7 +1,7 @@
 !##############################################################################
 module domain_decomposition_mod
-  use mpi_mod
   use decomp_2d
+  use mpi_mod
   implicit none
 
   public :: initialise_domain_decomposition
@@ -24,8 +24,8 @@ contains
   subroutine initialise_domain_decomposition (dm)
     use udf_type_mod
     !use iso_fortran_env
-    use wtformat_mod
     use print_msg_mod
+    use wtformat_mod
     implicit none
     type(t_domain), intent(inout)   :: dm
     
@@ -135,13 +135,13 @@ contains
 !> \param[in]     none          NA
 !==========================================================================================================
   subroutine Buildup_mpi_domain_decomposition
-    use vars_df_mod
-    use mpi_mod
-    use io_tools_mod
     use io_monitor_mod
-    use visualisation_mesh_mod
-    use visualisation_field_mod
+    use io_tools_mod
+    use mpi_mod
     use statistics_mod
+    use vars_df_mod
+    use visualisation_field_mod
+    use visualisation_mesh_mod
     implicit none
     integer :: i
 #ifdef DEBUG_STEPS

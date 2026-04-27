@@ -18,9 +18,9 @@
 ! Street, Fifth Floor, Boston, MA 02110-1301, USA.
 !----------------------------------------------------------------------------------------------------------
 module flow_thermo_initialiasation
-  use vars_df_mod
-  use solver_tools_mod
   use print_msg_mod
+  use solver_tools_mod
+  use vars_df_mod
   implicit none
 
   public  :: Allocate_flow_variables
@@ -54,8 +54,8 @@ contains
 !> \param[out]    none          NA
 !==========================================================================================================
   subroutine Allocate_flow_variables (fl, dm)
-    use parameters_constant_mod
     use mpi_mod
+    use parameters_constant_mod
     implicit none
 
     type(t_domain), intent(in)    :: dm
@@ -114,10 +114,10 @@ contains
   end subroutine Allocate_flow_variables
   !==========================================================================================================
   subroutine Allocate_thermo_variables (tm, dm)
-    use parameters_constant_mod
     use mpi_mod
-    use udf_type_mod
+    use parameters_constant_mod
     use thermo_info_mod
+    use udf_type_mod
     implicit none
 
     type(t_domain), intent(in)    :: dm
@@ -161,16 +161,16 @@ contains
   !> \param[out]    
   !==========================================================================================================
   subroutine Generate_random_field(fl, dm)
-    use random_number_generation_mod
-    use parameters_constant_mod
-    use mpi_mod
-    use math_mod
     use boundary_conditions_mod
+    use math_mod
+    use mpi_mod
+    use parameters_constant_mod
+    use random_number_generation_mod
     !use flatten_index_mod
     !use visualisation_field_mod
-    use wtformat_mod
     use find_max_min_ave_mod
     use wrt_debug_field_mod
+    use wtformat_mod
     implicit none
     type(t_domain),  intent(in) :: dm
     type(t_flow), intent(inout) :: fl
@@ -179,6 +179,7 @@ contains
     integer :: ii, jj, kk ! global id
     integer :: n, nsz  
     real(WP) :: rd, lownoise, rnd
+    real(WP) :: envelope
     type(DECOMP_INFO) :: dtmp
 
     if(nrank == 0) call Print_debug_inline_msg("Generating random field ...")
@@ -223,9 +224,15 @@ contains
             ! Method 4: 64-bit XOR / Mix Hash (Stateless, CPU/GPU consistent)
             call generate_random11_mixhash(ii, jj, kk, n, rd)
 
-            if(n == 1) fl%qx(i, j, k) = lownoise * rd
-            if(n == 2) fl%qy(i, j, k) = lownoise * HALF * rd * dm%rp(jj)
-            if(n == 3) fl%qz(i, j, k) = lownoise * HALF * rd! * dm%rc(jj)
+            if(n == 2) then
+              envelope = get_random_field_envelope(dm, dm%yp(jj))
+            else
+              envelope = get_random_field_envelope(dm, dm%yc(jj))
+            end if
+
+            if(n == 1) fl%qx(i, j, k) = lownoise * envelope * rd
+            if(n == 2) fl%qy(i, j, k) = lownoise * envelope * rd * dm%rp(jj)
+            if(n == 3) fl%qz(i, j, k) = lownoise * envelope * rd
           end do
         end do
       end do
@@ -249,6 +256,26 @@ contains
 
 
     return
+  contains
+    function get_random_field_envelope(dm, yy) result(envelope)
+      type(t_domain), intent(in) :: dm
+      real(WP),       intent(in) :: yy
+      real(WP)                   :: envelope
+
+      select case(dm%icase)
+      case (ICASE_CHANNEL)
+        envelope = ONE - yy * yy
+      case (ICASE_PIPE)
+        envelope = yy * (ONE - yy)
+      case (ICASE_ANNULAR)
+        envelope = (yy - dm%lyb) * (ONE - yy)
+      case default
+        envelope = ONE
+      end select
+      envelope = max(ZERO, envelope)
+
+      return
+    end function get_random_field_envelope
   end subroutine
 
   !==========================================================================================================
@@ -265,10 +292,10 @@ contains
   !> \param[out]    ux_1c1          u(yc), velocity profile along wall-normal direction
   !==========================================================================================================
   subroutine Generate_poiseuille_flow_profile(dm, u_xy)
+    use io_files_mod
+    use math_mod
     use parameters_constant_mod
     use udf_type_mod
-    use math_mod
-    use io_files_mod
     implicit none
 
     type(t_domain), intent(in)  :: dm
@@ -328,7 +355,7 @@ contains
     !----------------------------------------------------------------------------------------------------------
     !   Y-pencil : write out velocity profile
     !----------------------------------------------------------------------------------------------------------
-    if(nrank == 0) then
+    if(nrank == 0 .and. .not. is_IO_off) then
       open ( newunit = pf_unit,     &
               file    = trim(dir_chkp)//'/check_poiseuille_ux_profile.dat', &
               status  = 'replace',         &
@@ -365,16 +392,16 @@ contains
   !> \param[out]    f             flow
   !==========================================================================================================
   subroutine initialise_poiseuille_flow(fl, dm)
-    use input_general_mod
-    use udf_type_mod
     use boundary_conditions_mod
-    use parameters_constant_mod
-    use wtformat_mod
-    use io_files_mod
-    use io_restart_mod
     use convert_primary_conservative_mod
     use find_max_min_ave_mod
+    use input_general_mod
+    use io_files_mod
+    use io_restart_mod
+    use parameters_constant_mod
+    use udf_type_mod
     use wrt_debug_field_mod
+    use wtformat_mod
     implicit none
     type(t_domain),intent(inout) :: dm
     type(t_flow), intent(inout) :: fl
@@ -509,10 +536,10 @@ contains
   !==========================================================================================================
   !==========================================================================================================
   subroutine initialise_flow_from_given_values(fl)
-    use udf_type_mod, only: t_domain
-    use precision_mod, only: WP
-    use parameters_constant_mod, only: ZERO
     use boundary_conditions_mod
+    use parameters_constant_mod, only: ZERO
+    use precision_mod, only: WP
+    use udf_type_mod, only: t_domain
     implicit none
     !type(t_domain),  intent(in) :: dm
     type(t_flow), intent(inout) :: fl
@@ -535,10 +562,10 @@ contains
 !==========================================================================================================
   !==========================================================================================================
   subroutine initialise_flow_from_given_inlet(fl, dm)
-    use udf_type_mod, only: t_domain
-    use precision_mod, only: WP
-    use parameters_constant_mod, only: ZERO
     use boundary_conditions_mod
+    use parameters_constant_mod, only: ZERO
+    use precision_mod, only: WP
+    use udf_type_mod, only: t_domain
     
     implicit none
     type(t_domain),  intent(in) :: dm
@@ -592,18 +619,18 @@ contains
 
   !==========================================================================================================
   subroutine initialise_flow_fields(fl, dm)
-    use udf_type_mod
-    use parameters_constant_mod
-    use io_restart_mod
-    use visualisation_field_mod
-    use wtformat_mod
-    use solver_tools_mod
-    use continuity_eq_mod
     use boundary_conditions_mod
-    use statistics_mod
+    use continuity_eq_mod
     use convert_primary_conservative_mod
-    use wrt_debug_field_mod
     use find_max_min_ave_mod
+    use io_restart_mod
+    use parameters_constant_mod
+    use solver_tools_mod
+    use statistics_mod
+    use udf_type_mod
+    use visualisation_field_mod
+    use wrt_debug_field_mod
+    use wtformat_mod
     implicit none
 
     type(t_domain), intent(inout) :: dm
@@ -693,7 +720,7 @@ contains
     if(dm%icase == ICASE_PIPE) call update_fbcy_cc_flow_halo(fl, dm)
 
     call Check_element_mass_conservation(fl, dm, 0, opt_str='initial') 
-    call write_visu_flow(fl, dm, 'init')
+    if(.not. is_IO_off) call write_visu_flow(fl, dm, 'init')
 
     if(nrank == 0) call Print_debug_end_msg()
 
@@ -702,14 +729,14 @@ contains
 
   !==========================================================================================================
   subroutine initialise_thermo_fields(tm, fl, dm)
-    use udf_type_mod
-    use parameters_constant_mod
-    use eq_energy_mod
-    use thermo_info_mod
-    use io_restart_mod
-    use statistics_mod
-    use visualisation_field_mod
     use boundary_conditions_mod
+    use eq_energy_mod
+    use io_restart_mod
+    use parameters_constant_mod
+    use statistics_mod
+    use thermo_info_mod
+    use udf_type_mod
+    use visualisation_field_mod
     implicit none
 
     type(t_domain), intent(inout) :: dm
@@ -751,8 +778,10 @@ contains
     if(nrank == 0) call Print_debug_mid_msg("update_fbcy_cc_thermo_halo ...")
     if (dm%icase == ICASE_PIPE) call update_fbcy_cc_thermo_halo(tm, dm)
 
-    if(nrank == 0) call Print_debug_mid_msg("write_visu_thermo ...")
-    call write_visu_thermo(tm, fl, dm, 'init')
+    if(.not. is_IO_off) then
+      if(nrank == 0) call Print_debug_mid_msg("write_visu_thermo ...")
+      call write_visu_thermo(tm, fl, dm, 'init')
+    end if
 
     if(nrank == 0) call Print_debug_end_msg()
     return
@@ -772,9 +801,9 @@ contains
 !> \param[out]    f             flow
 !_______________________________________________________________________________
   subroutine  initialise_vortexgreen_2dflow(fl, dm)
+    use math_mod
     use parameters_constant_mod!, only : HALF, ZERO, SIXTEEN, TWO
     use udf_type_mod
-    use math_mod
     
     implicit none
     type(t_domain), intent(in ) :: dm
@@ -836,10 +865,10 @@ contains
 !==========================================================================================================
 !==========================================================================================================
   subroutine  Validate_TGV2D_error(fl, dm)
+    use io_files_mod
+    use math_mod
     use parameters_constant_mod
     use udf_type_mod
-    use math_mod
-    use io_files_mod
     
     !use iso_fortran_env
     implicit none
@@ -970,9 +999,9 @@ contains
 !> \param[out]    f             flow
 !_______________________________________________________________________________
   subroutine  initialise_vortexgreen_3dflow(fl, dm)
+    use math_mod
     use parameters_constant_mod!, only : HALF, ZERO, SIXTEEN, TWO, PI
     use udf_type_mod
-    use math_mod
     
     implicit none
     type(t_domain), intent(in ) :: dm
@@ -1055,9 +1084,9 @@ contains
   end subroutine initialise_vortexgreen_3dflow
   !==========================================================================================================
   subroutine  initialise_vortexgreen_3dflow_thermo(fl, tm, dm)
+    use math_mod
     use parameters_constant_mod!, only : HALF, ZERO, SIXTEEN, TWO, PI
     use udf_type_mod
-    use math_mod
     
     implicit none
     type(t_domain), intent(in ) :: dm

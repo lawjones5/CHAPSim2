@@ -147,11 +147,7 @@ OBJS1 = $(addprefix $(DIR_OBJ)/, \
       poisson_fishpack.o \
       poisson_1stderivcomp_fft2d.o \
       poisson_interface.o \
-<<<<<<< master
-      eq_continuity.o \
-=======
 			eq_continuity.o \
->>>>>>> master
       bc_convective_outlet.o \
       eq_energy.o \
       eq_mhd.o \
@@ -180,13 +176,54 @@ endef
 # Default targets
 default: all
 
-all: $(DIR_BIN)/$(PROGRAM)
+all:
+	@bash -lc '\
+		if [ "$${CHAPSIM_PROMPTED:-0}" = "1" ]; then \
+			exec "$(MAKE)" --no-print-directory real-all cfg="$(cfg)"; \
+		fi; \
+		clean_build=no; \
+		if [ -t 0 ]; then \
+			read -r -t 10 -p "Perform a clean build of CHAPSim? (y/n) [no] (10s timeout): " ans || true; \
+			clean_build=$${ans:-no}; \
+			echo ""; \
+		else \
+			echo "Perform a clean build of CHAPSim? (y/n) [no] (10s timeout): "; \
+		fi; \
+		echo "CHAPSim build mode: a=default, b=gnu-o3, c=gnu-g, d=gnu-debug, e=intel, f=cray, g=nvhpc-cpu"; \
+		build_mode=a; \
+		if [ -t 0 ]; then \
+			read -r -t 10 -p "Select CHAPSim build mode (a,b,c,d,e,f,g) [a] (10s timeout): " mode || true; \
+			build_mode=$${mode:-a}; \
+			echo ""; \
+		else \
+			echo "Select CHAPSim build mode (a,b,c,d,e,f,g) [a] (10s timeout): "; \
+		fi; \
+		case "$${build_mode}" in \
+			a|"") chosen_cfg=default ;; \
+			b) chosen_cfg=gnu-o3 ;; \
+			c) chosen_cfg=gnu-g ;; \
+			d) chosen_cfg=gnu-debug ;; \
+			e) chosen_cfg=intel ;; \
+			f) chosen_cfg=cray ;; \
+			g) chosen_cfg=nvhpc-cpu ;; \
+			*) echo "Invalid build mode '\''$${build_mode}'\'' - using default (a)."; chosen_cfg=default ;; \
+		esac; \
+		case "$$(printf "%s" "$${clean_build}" | tr "[:upper:]" "[:lower:]")" in \
+			y|yes) "$(MAKE)" --no-print-directory clean ;; \
+		esac; \
+		exec "$(MAKE)" --no-print-directory CHAPSIM_PROMPTED=1 cfg="$${chosen_cfg}" real-all; \
+	'
+
+real-all: prep-build-log $(DIR_BIN)/$(PROGRAM)
 	@echo ""
 	@echo "========================================================================="
 	@echo "  CHAPSim2 Build System"
 	@echo "  Configuration: $(cfg)"
 	@echo "========================================================================="
 	@echo ""
+
+prep-build-log:
+	@rm -f build.log
 
 # Main target for building the program
 $(DIR_BIN)/$(PROGRAM): $(OBJS1) $(OBJS2)
@@ -277,4 +314,4 @@ help:
 	@echo ""
 
 # Phony targets
-.PHONY: all clean default verify-lib help
+.PHONY: all clean default verify-lib help prep-build-log real-all

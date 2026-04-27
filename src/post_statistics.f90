@@ -31,8 +31,8 @@ module visualisation_spatial_average_mod
 
 contains
   subroutine write_visu_savg_bin_and_xdmf(dm, data_in, field_name, visuname, iter)
-    use udf_type_mod
     use decomp_2d
+    use udf_type_mod
     use visualisation_field_mod
     implicit none
     type(t_domain), intent(in) :: dm
@@ -125,13 +125,13 @@ contains
   end subroutine write_visu_savg_bin_and_xdmf
 
   subroutine write_visu_profile(dm, prof, varname, dir, iter)
-    use precision_mod
     use decomp_2d
     use decomp_2d_io
-    use udf_type_mod, only: t_domain
-    use io_tools_mod
     use decomp_operation_mod
+    use io_tools_mod
+    use precision_mod
     use typeconvert_mod
+    use udf_type_mod, only: t_domain
     implicit none
     type(t_domain), intent(in) :: dm
     real(WP), intent(in) :: prof(:)
@@ -187,8 +187,8 @@ contains
   !   - Return 1D vector of the remaining coordinate.
   !========================================================================================================
   subroutine mean_over_two_dirs_to_profile(data_xpencil, dm, dir, profile_out)
-    use udf_type_mod
     use decomp_2d
+    use udf_type_mod
     implicit none
     real(WP), intent(in)          :: data_xpencil(:,:,:)
     type(t_domain), intent(in)    :: dm
@@ -256,8 +256,8 @@ contains
   !
   !========================================================================================================
   subroutine mean_over_one_dir_to_plane(data_xpencil, dm, dirAvg, plane_out)
-    use udf_type_mod
     use decomp_2d
+    use udf_type_mod
     implicit none
     real(WP), intent(in)          :: data_xpencil(:,:,:)
     
@@ -401,8 +401,8 @@ contains
 end module visualisation_spatial_average_mod
 !==========================================================================================================
 module statistics_mod
-  use print_msg_mod
   use parameters_constant_mod
+  use print_msg_mod
   implicit none
 
   character(13), parameter :: io_name = "statistics-io"
@@ -442,11 +442,11 @@ module statistics_mod
 contains
 !==========================================================================================================
   subroutine run_stats_action(mode, accc_tavg, field_name, iter, dm, opt_accc, opt_visnm)
+    use io_tools_mod
     use typeconvert_mod
     use udf_type_mod
     use visualisation_field_mod
     use visualisation_spatial_average_mod
-    use io_tools_mod
     implicit none
     integer, intent(in) :: mode
     character(len=*), intent(in) :: field_name
@@ -468,7 +468,7 @@ contains
       !
     case(STATS_TAVG)
       if(.not. present(opt_accc)) call Print_error_msg("Error. Need Time Averaged Value.")
-      nstat = iter - dm%stat_istart + 1
+      nstat = iter - dm%stat_istart
       if(nstat > 0) then
         ac = ONE / real(nstat, WP)
         am = real(nstat - 1, WP) / real(nstat, WP)
@@ -488,8 +488,8 @@ contains
   end subroutine
 !==========================================================================================================
   subroutine run_stats_loops1(mode, accc_tavg, field_name, iter, dm, opt_accc1, opt_accc0, opt_visnm)
-    use udf_type_mod
     use typeconvert_mod
+    use udf_type_mod
     implicit none
     integer, intent(in) :: mode
     character(len=*), intent(in) :: field_name
@@ -509,14 +509,14 @@ contains
       end if
     end if
     call run_stats_action(mode, accc_tavg, trim(field_name), iter, dm, opt_accc, opt_visnm)
-    if(mode == STATS_TAVG) &
+    if(mode == STATS_TAVG .or. mode == STATS_READ) &
     accc_tavg(:, :, :) = accc_tavg(:, :, :)
     return
   end subroutine
 !==========================================================================================================
   subroutine run_stats_loops3(mode, acccn_tavg, field_name, iter, dm, opt_acccn1, opt_accc0, opt_visnm)
-    use udf_type_mod
     use typeconvert_mod
+    use udf_type_mod
     implicit none
     integer, intent(in) :: mode
     character(len=*), intent(in) :: field_name
@@ -540,15 +540,15 @@ contains
         end if
       end if
       call run_stats_action(mode, accc_tavg, trim(field_name)//trim(int2str(i)), iter, dm, opt_accc, opt_visnm)
-      if(mode == STATS_TAVG)&
+      if(mode == STATS_TAVG .or. mode == STATS_READ)&
       acccn_tavg(:, :, :, i) = accc_tavg(:, :, :)
     end do
     return
   end subroutine
 !==========================================================================================================
   subroutine run_stats_loops6(mode, acccn_tavg, field_name, iter, dm, opt_acccn1, opt_acccn2, opt_accc0, opt_visnm)
-    use udf_type_mod
     use typeconvert_mod
+    use udf_type_mod
     implicit none
     integer, intent(in) :: mode
     character(len=*), intent(in) :: field_name
@@ -575,7 +575,7 @@ contains
             opt_accc(:, :, :) = opt_accc(:, :, :) * opt_accc0(:, :, :)
           end if
           call run_stats_action(mode, accc_tavg, trim(field_name)//trim(int2str(i))//trim(int2str(j)), iter, dm, opt_accc, opt_visnm)
-          if(mode == STATS_TAVG)&
+          if(mode == STATS_TAVG .or. mode == STATS_READ)&
           acccn_tavg(:, :, :, n) = accc_tavg(:, :, :)
         end if
       end do
@@ -584,8 +584,8 @@ contains
   end subroutine
 !==========================================================================================================
   subroutine run_stats_loops9(mode, acccn_tavg, field_name, iter, dm, opt_acccnn1, opt_accc0, opt_visnm)
-    use udf_type_mod
     use typeconvert_mod
+    use udf_type_mod
     implicit none
     integer, intent(in) :: mode
     character(len=*), intent(in) :: field_name
@@ -613,7 +613,7 @@ contains
           opt_accc(:, :, :) = opt_accc(:, :, :) * opt_accc0(:, :, :)
         end if
         call run_stats_action(mode, accc_tavg, trim(field_name)//trim(int2str(i))//trim(int2str(j)), iter, dm, opt_accc, opt_visnm)
-        if(mode == STATS_TAVG)&
+        if(mode == STATS_TAVG .or. mode == STATS_READ)&
         acccn_tavg(:, :, :, n) = accc_tavg(:, :, :)
       end do
     end do
@@ -621,8 +621,8 @@ contains
   end subroutine
 !==========================================================================================================
   subroutine run_stats_loops10(mode, acccn_tavg, field_name, iter, dm, opt_acccn1, opt_acccn2, opt_acccn3, opt_accc0, opt_visnm)
-    use udf_type_mod
     use typeconvert_mod
+    use udf_type_mod
     implicit none
     integer, intent(in) :: mode
     character(len=*), intent(in) :: field_name
@@ -655,7 +655,7 @@ contains
                 opt_accc(:, :, :) = opt_accc(:, :, :) * opt_accc0(:, :, :)
               end if
               call run_stats_action(mode, accc_tavg, trim(field_name)//trim(int2str(i))//trim(int2str(j))//trim(int2str(k)), iter, dm, opt_accc, opt_visnm)
-              if(mode == STATS_TAVG)&
+              if(mode == STATS_TAVG .or. mode == STATS_READ)&
               acccn_tavg(:, :, :, n) = accc_tavg(:, :, :)
             end if
           end do
@@ -665,8 +665,8 @@ contains
   end subroutine
 !==========================================================================================================
   subroutine run_stats_loops45(mode, acccn_tavg, field_name, iter, dm, opt_ndudusz, opt_acccnn1, opt_acccnn2, opt_accc0, opt_visnm)
-    use udf_type_mod
     use typeconvert_mod
+    use udf_type_mod
     implicit none
     integer, intent(in) :: mode
     character(len=*), intent(in) :: field_name
@@ -717,7 +717,7 @@ contains
                 call run_stats_action(mode, accc_tavg, &
                     trim(field_name)//trim(int2str(i))//trim(int2str(j))//trim(int2str(s))//trim(int2str(l)), &
                     iter, dm, opt_accc, opt_visnm)
-                if(mode == STATS_TAVG)&
+                if(mode == STATS_TAVG .or. mode == STATS_READ)&
                 acccn_tavg(:, :, :, n) = accc_tavg(:, :, :)
               end if
             end do
@@ -741,7 +741,7 @@ contains
               opt_accc(:, :, :) = opt_accc(:, :, :) * opt_accc0(:, :, :)
             end if
             call run_stats_action(mode, accc_tavg, trim(field_name)//trim(int2str(i))//trim(int2str(j)), iter, dm, opt_accc, opt_visnm)
-            if(mode == STATS_TAVG)&
+            if(mode == STATS_TAVG .or. mode == STATS_READ)&
             acccn_tavg(:, :, :, n) = accc_tavg(:, :, :)
           end if
         end do
@@ -755,10 +755,10 @@ contains
 !==========================================================================================================
 !==========================================================================================================
   subroutine init_stats_flow(fl, dm)
-    use udf_type_mod
-    use parameters_constant_mod
     use io_tools_mod
+    use parameters_constant_mod
     use typeconvert_mod
+    use udf_type_mod
     implicit none 
     type(t_domain), intent(in) :: dm
     type(t_flow),   intent(inout) :: fl
@@ -842,7 +842,7 @@ contains
       end if
       if(dm%stat_level > ISTATL2) then
         call run_stats_loops3 (STATS_READ, fl%tavg_pru,  't_avg_pru',  iter, dm)
-        call run_stats_loops9 (STATS_READ, fl%tavg_prdu, 't_avg_prdu', iter, dm)
+        call run_stats_loops9 (STATS_READ, fl%tavg_prdu, 't_avg_prdu', iter, dm)        
         call run_stats_loops10(STATS_READ, fl%tavg_uuu,  't_avg_uuu',  iter, dm)
         call run_stats_loops45(STATS_READ, fl%tavg_dudu, 't_avg_dudu', iter, dm, opt_ndudusz=NDUDU_ACTIVE)
       end if
@@ -876,9 +876,9 @@ contains
 !==========================================================================================================
 !==========================================================================================================
   subroutine init_stats_thermo(tm, dm)
-    use udf_type_mod
-    use parameters_constant_mod
     use io_tools_mod
+    use parameters_constant_mod
+    use udf_type_mod
     implicit none 
     type(t_domain), intent(in) :: dm
     type(t_thermo), intent(inout) :: tm
@@ -929,9 +929,9 @@ contains
 !==========================================================================================================
 !==========================================================================================================
   subroutine init_stats_mhd(mh, dm)
-    use udf_type_mod
-    use parameters_constant_mod
     use io_tools_mod
+    use parameters_constant_mod
+    use udf_type_mod
     implicit none 
     type(t_domain), intent(in) :: dm
     type(t_mhd), intent(inout) :: mh
@@ -983,10 +983,11 @@ contains
 !==========================================================================================================
 
   subroutine update_stats_flow(fl, dm, tm, mh)
-    use udf_type_mod
-    use parameters_constant_mod
+    use boundary_conditions_mod
     use operations
+    use parameters_constant_mod
     use transpose_extended_mod
+    use udf_type_mod
     implicit none 
     type(t_domain), intent(in) :: dm
     type(t_flow),   intent(inout) :: fl
@@ -1007,6 +1008,8 @@ contains
     real(WP), dimension( dm%dppc%ysz(1), dm%dppc%ysz(2), dm%dppc%ysz(3) ) :: appc_ypencil
     real(WP), dimension( dm%dcpc%ysz(1), dm%dcpc%ysz(2), dm%dcpc%ysz(3) ) :: acpc_ypencil 
     real(WP), dimension( dm%dcpp%ysz(1), dm%dcpp%ysz(2), dm%dcpp%ysz(3) ) :: acpp_ypencil 
+    real(WP), dimension( dm%dppc%ysz(1), 4, dm%dppc%ysz(3) ) :: fbcy_p4c
+    real(WP), dimension( dm%dcpp%ysz(1), 4, dm%dcpp%ysz(3) ) :: fbcy_c4p
     real(WP), dimension( dm%dccc%zsz(1), dm%dccc%zsz(2), dm%dccc%zsz(3) ) :: accc_zpencil, accc1_zpencil
     real(WP), dimension( dm%dccp%zsz(1), dm%dccp%zsz(2), dm%dccp%zsz(3) ) :: accp_zpencil
     real(WP), dimension( dm%dpcc%zsz(1), dm%dpcc%zsz(2), dm%dpcc%zsz(3) ) :: apcc_zpencil
@@ -1047,6 +1050,11 @@ contains
     dudx(:, :, :, 1, 1) = accc_xpencil(:, :, :)
     call transpose_x_to_y(fl%qx, apcc_ypencil, dm%dpcc)
     call Get_y_1der_C2P_3D(apcc_ypencil, appc_ypencil, dm, dm%iAccuracy, dm%ibcy_qx, dm%fbcy_qx)
+    fbcy_p4c = MAXP
+    if(dm%icase == ICASE_PIPE) then
+      call axis_mirror_fbcy(appc_ypencil, IPENCIL(2), fbcy_p4c, dm%knc_sym, dm%dppc, is_odd = .true., &
+                            axis_mode = AXIS_RECON_M1, assign_axis_to_var = .true., nr = 0, opt_dz = dm%h(3))
+    end if
     call Get_y_midp_P2C_3D(appc_ypencil, apcc_ypencil, dm, dm%iAccuracy, dm%ibcy_qx) ! should be BC of du/dy
     call transpose_y_to_x(apcc_ypencil, apcc_xpencil, dm%dpcc)
     call Get_x_midp_P2C_3D(apcc_xpencil, accc_xpencil, dm, dm%iAccuracy, dm%ibcx_qx) ! should be BC of du/dy
@@ -1084,6 +1092,11 @@ contains
     dudx(:, :, :, 3, 1) = accc_xpencil(:, :, :)
     call transpose_x_to_y(fl%qz, accp_ypencil, dm%dccp)
     call Get_y_1der_C2P_3D(accp_ypencil, acpp_ypencil, dm, dm%iAccuracy, dm%ibcy_qz, dm%fbcy_qz)
+    fbcy_c4p = MAXP
+    if(dm%icase == ICASE_PIPE) then
+      call axis_mirror_fbcy(acpp_ypencil, IPENCIL(2), fbcy_c4p, dm%knc_sym, dm%dcpp, is_odd = .false., &
+                            axis_mode = AXIS_RECON_M0_M2, assign_axis_to_var = .true., nr = 0, opt_dz = dm%h(3))
+    end if
     call Get_y_midp_P2C_3D(acpp_ypencil, accp_ypencil, dm, dm%iAccuracy, dm%ibcy_qz) ! should be BC of du/dy
     call transpose_to_z_pencil(accp_ypencil, accp_zpencil, dm%dccp, IPENCIL(2))
     call Get_z_midp_P2C_3D(accp_zpencil, accc_zpencil, dm, dm%iAccuracy, dm%ibcz_qz) ! should be BC of dv/dy
@@ -1137,10 +1150,10 @@ contains
 !==========================================================================================================
 !==========================================================================================================
   subroutine update_stats_thermo(tm, dm)
-    use udf_type_mod
-    use parameters_constant_mod
     use operations
+    use parameters_constant_mod
     use transpose_extended_mod
+    use udf_type_mod
     implicit none 
     type(t_domain), intent(in) :: dm
     type(t_thermo), intent(inout) :: tm
@@ -1187,10 +1200,10 @@ contains
 !==========================================================================================================
 !==========================================================================================================
   subroutine update_stats_mhd(mh, dm)
-    use udf_type_mod
-    use parameters_constant_mod
     use operations
+    use parameters_constant_mod
     use transpose_extended_mod
+    use udf_type_mod
     implicit none 
     type(t_domain), intent(in) :: dm
     type(t_mhd), intent(inout) :: mh
@@ -1247,8 +1260,8 @@ contains
 !==========================================================================================================
   subroutine write_stats_flow(fl, dm)
     use io_tools_mod
-    use udf_type_mod
     use typeconvert_mod
+    use udf_type_mod
     implicit none 
     type(t_domain), intent(in) :: dm
     type(t_flow),   intent(inout) :: fl
@@ -1303,8 +1316,8 @@ contains
 !==========================================================================================================
 !==========================================================================================================
   subroutine write_stats_thermo(tm, dm)
-    use udf_type_mod
     use io_tools_mod
+    use udf_type_mod
     implicit none 
     type(t_domain), intent(in) :: dm
     type(t_thermo), intent(inout) :: tm
@@ -1331,8 +1344,8 @@ contains
 !==========================================================================================================
 !==========================================================================================================
   subroutine write_stats_mhd(mh, dm)
-    use udf_type_mod
     use io_tools_mod
+    use udf_type_mod
     implicit none 
     type(t_domain), intent(in) :: dm
     type(t_mhd), intent(inout) :: mh
@@ -1356,9 +1369,9 @@ contains
   end subroutine
   !==========================================================================================================
   subroutine write_visu_stats_flow(fl, dm)
-    use udf_type_mod
     use precision_mod
     use typeconvert_mod
+    use udf_type_mod
     use visualisation_field_mod
     implicit none 
     type(t_domain), intent(in) :: dm
@@ -1386,7 +1399,7 @@ contains
     end if
     if(dm%stat_level > ISTATL2) then
       call run_stats_loops3 (STATS_VISU3, fl%tavg_pru,  't_avg_pru',  iter, dm, opt_visnm=trim(visuname))
-      call run_stats_loops9 (STATS_VISU3, fl%tavg_prdu, 't_avg_prdu', iter, dm, opt_visnm=trim(visuname))
+      call run_stats_loops9 (STATS_VISU3, fl%tavg_prdu, 't_avg_prdu', iter, dm, opt_visnm=trim(visuname))      
       call run_stats_loops10(STATS_VISU3, fl%tavg_uuu,  't_avg_uuu',  iter, dm, opt_visnm=trim(visuname))
       call run_stats_loops45(STATS_VISU3, fl%tavg_dudu, 't_avg_dudu', iter, dm, opt_visnm=trim(visuname), opt_ndudusz=NDUDU_ACTIVE)
     end if
@@ -1431,7 +1444,7 @@ contains
       end if
       if(dm%stat_level > ISTATL2) then
         call run_stats_loops3 (STATS_VISU1, fl%tavg_pru,  'tsp_avg_pru',  iter, dm, opt_visnm=trim(visuname))
-        call run_stats_loops9 (STATS_VISU1, fl%tavg_prdu, 'tsp_avg_prdu', iter, dm, opt_visnm=trim(visuname))
+        call run_stats_loops9 (STATS_VISU1, fl%tavg_prdu, 'tsp_avg_prdu', iter, dm, opt_visnm=trim(visuname))        
         call run_stats_loops10(STATS_VISU1, fl%tavg_uuu,  'tsp_avg_uuu',  iter, dm, opt_visnm=trim(visuname))
         call run_stats_loops45(STATS_VISU1, fl%tavg_dudu, 'tsp_avg_dudu', iter, dm, opt_visnm=trim(visuname), opt_ndudusz=NDUDU_ACTIVE)
       end if
@@ -1465,8 +1478,8 @@ contains
 
   !==========================================================================================================
   subroutine write_visu_stats_thermo(tm, dm)
-    use udf_type_mod
     use precision_mod
+    use udf_type_mod
     use visualisation_field_mod
     implicit none 
     type(t_domain), intent(in) :: dm
@@ -1520,8 +1533,8 @@ contains
   end subroutine
 !==========================================================================================================
   subroutine write_visu_stats_mhd(mh, dm)
-    use udf_type_mod
     use precision_mod
+    use udf_type_mod
     use visualisation_field_mod
     implicit none 
     type(t_domain), intent(in) :: dm

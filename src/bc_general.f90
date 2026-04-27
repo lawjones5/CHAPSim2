@@ -1,10 +1,16 @@
 module boundary_conditions_mod
   use bc_dirichlet_mod
   use bc_ndomain_interior_mod
-  use udf_type_mod
   use parameters_constant_mod
   use print_msg_mod
+  use udf_type_mod
   implicit none
+
+  integer, parameter, public :: AXIS_RECON_NONE      = 0 
+  integer, parameter, public :: AXIS_RECON_ZERO      = 1 ! quantities constrained to vanish on the axis.
+  integer, parameter, public :: AXIS_RECON_M1        = 2 ! vector-like cross-plane quantities whose regular centreline behavior is the first azimuthal Fourier mode.
+  integer, parameter, public :: AXIS_RECON_M0        = 3 ! scalar-like fields whose centreline limit must be single-valued and azimuthally invariant.
+  integer, parameter, public :: AXIS_RECON_M0_M2     = 4 ! quadratic or tensor-like products of m=1 quantities, whose regular centreline content consists of axisymmetric and second azimuthal modes.
 
   integer, save :: mbcx_cov1(2), &
                    mbcy_cov1(2), &
@@ -45,12 +51,11 @@ module boundary_conditions_mod
   public  :: allocate_fbc_thermo ! applied once only
 
   !private :: axis_mirroring_interior_fbcy
-  private :: axis_mirror_even_fbcy
-  private :: axis_mirror_odd_fbcy
-  private :: build_axis_qyr_fbcy
-  private :: build_axis_qzr_fbcy
+  public  :: axis_mirror_fbcy
+  !private :: build_axis_qyr_fbcy
   public  :: update_fbcy_cc_flow_halo   ! for pipe only, applied every NS, cc for circle central point and var stored in xcx
   public  :: update_fbcy_cc_thermo_halo ! for pipe only, applied every NS, cc for circle central point and var stored in xcx
+  public  :: update_fbcy_cc_mhd_halo    ! for pipe only, applied every MHD refresh, cc for circle central point and var stored in xcx
 
   public  :: build_bc_symm_operation    ! applied if necessary
   public  :: config_calc_eqs_ibc
@@ -384,58 +389,61 @@ end function
 
 !==========================================================================================================
   subroutine update_fbcy_cc_flow_halo(fl, dm)  ! cylindrical pipe axis treatment only
-    use find_max_min_ave_mod
     use cylindrical_rn_mod
+    use find_max_min_ave_mod
     implicit none
 
     type(t_domain), intent(inout) :: dm
     type(t_flow),   intent(inout) :: fl
-
-    real(WP), dimension(dm%dcpc%xsz(1), dm%dcpc%xsz(2), dm%dcpc%xsz(3)) :: work_xpencil
 
     if (dm%icase /= ICASE_PIPE .or. dm%icoordinate /= ICYLINDRICAL) return
 
   ! qx : even symmetry across axis
     if(dm%ibcy_qx(1) /= IBC_INTERIOR) &
       call Print_error_msg('Error in ibcy_qx for the centre of the pipe.')
-    call axis_mirror_even_fbcy(fl%qx, dm%fbcy_qx, dm%knc_sym, dm%dpcc)
+    call axis_mirror_fbcy(fl%qx, IPENCIL(1), dm%fbcy_qx, dm%knc_sym, dm%dpcc, is_odd = .false.)
 
   ! qy = ur * r: odd symmetry across axis
   ! qyr = ur = qy / r : even regular quantity
     if(dm%ibcy_qy(1) /= IBC_INTERIOR) &
       call Print_error_msg('Error in ibcy_qy for the centre of the pipe.')
-    call axis_mirror_odd_fbcy(fl%qy, dm%fbcy_qy, dm%knc_sym, dm%dcpc)
-    call build_axis_qyr_fbcy(fl%qy, dm%fbcy_qyr, dm%knc_sym, dm%dcpc, dm%rpi)
+    call axis_mirror_fbcy(fl%qy, IPENCIL(1), dm%fbcy_qy, dm%knc_sym, dm%dcpc, is_odd = .true., &
+                          axis_mode = AXIS_RECON_ZERO, assign_axis_to_var = .true., nr = 0)
+    call axis_mirror_fbcy(fl%qy, IPENCIL(1), dm%fbcy_qyr, dm%knc_sym, dm%dcpc, is_odd = .true., &
+                          nr = 1, opt_r = dm%rpi, opt_dz = dm%h(3), &
+                          axis_mode = AXIS_RECON_M1)
 
   ! qz : odd symmetry across axis
-  ! qzr = qz / r : even regular quantity
+  ! qzr = qz / r : odd derived quantity for positive radius arrays
     if(dm%ibcy_qz(1) /= IBC_INTERIOR) &
       call Print_error_msg('Error in ibcy_qz for the centre of the pipe.')
-    call axis_mirror_odd_fbcy(fl%qz, dm%fbcy_qz, dm%knc_sym, dm%dccp)
-    call build_axis_qzr_fbcy(fl%qz, dm%fbcy_qzr, dm%fbcy_qz, dm%knc_sym, dm%dccp, dm%rci)
+    call axis_mirror_fbcy(fl%qz, IPENCIL(1), dm%fbcy_qz, dm%knc_sym, dm%dccp, is_odd = .true.)
+    call axis_mirror_fbcy(fl%qz, IPENCIL(1), dm%fbcy_qzr, dm%knc_sym, dm%dccp, is_odd = .true., &
+                          nr = 1, opt_r = dm%rci)
 
   ! pressure : even symmetry across axis
     if(dm%ibcy_pr(1) /= IBC_INTERIOR) &
       call Print_error_msg('Error in ibcy_pr for the centre of the pipe.')
-    call axis_mirror_even_fbcy(fl%pres, dm%fbcy_pr, dm%knc_sym, dm%dccc)
+    call axis_mirror_fbcy(fl%pres, IPENCIL(1), dm%fbcy_pr, dm%knc_sym, dm%dccc, is_odd = .false.)
 
   ! thermal variables
     if(dm%is_thermo) then
   ! gx : even symmetry
       if(dm%ibcy_qx(1) /= IBC_INTERIOR) &
         call Print_error_msg('Error in ibcy_gx for the centre of the pipe.')
-      call axis_mirror_even_fbcy(fl%gx, dm%fbcy_gx, dm%knc_sym, dm%dpcc)
+      call axis_mirror_fbcy(fl%gx, IPENCIL(1), dm%fbcy_gx, dm%knc_sym, dm%dpcc, is_odd = .false.)
 
   ! gy : odd symmetry
       if(dm%ibcy_qy(1) /= IBC_INTERIOR) &
         call Print_error_msg('Error in ibcy_qy for the centre of the pipe.')
-      call axis_mirror_odd_fbcy(fl%gy, dm%fbcy_gy, dm%knc_sym, dm%dcpc)
+      call axis_mirror_fbcy(fl%gy, IPENCIL(1), dm%fbcy_gy, dm%knc_sym, dm%dcpc, is_odd = .true., &
+                            axis_mode = AXIS_RECON_ZERO, assign_axis_to_var = .true., nr = 0)
       !call build_axis_qyr_fbcy(fl%gy, dm%fbcy_gyr, dm%knc_sym, dm%dcpc, dm%rpi), not used!
   
   ! gz : odd symmetry
       if(dm%ibcy_qz(1) /= IBC_INTERIOR) &
         call Print_error_msg('Error in ibcy_gz for the centre of the pipe.')
-      call axis_mirror_odd_fbcy(fl%gz, dm%fbcy_gz, dm%knc_sym, dm%dccp)
+      call axis_mirror_fbcy(fl%gz, IPENCIL(1), dm%fbcy_gz, dm%knc_sym, dm%dccp, is_odd = .true.)
 
     end if
 
@@ -443,12 +451,12 @@ end function
   end subroutine update_fbcy_cc_flow_halo
 !==========================================================================================================
   subroutine update_fbcy_cc_thermo_halo(tm, dm)  ! cylindrical pipe axis treatment only
-    use thermo_info_mod
     use find_max_min_ave_mod
+    use thermo_info_mod
     implicit none
 
     type(t_domain), intent(inout) :: dm
-    type(t_thermo), intent(in)    :: tm
+    type(t_thermo), intent(inout) :: tm
 
     real(WP) :: fbcy(dm%dccc%ysz(1), 4, dm%dccc%ysz(3))
 
@@ -463,7 +471,7 @@ end function
   ! Table-based property update: use enthalpy
     if(fluidparam%ipropertyState == IPROPERTY_TABLE) then
       fbcy = dm%fbcy_ftp%h
-      call axis_mirror_even_fbcy(tm%hEnth, fbcy, dm%knc_sym, dm%dccc)
+      call axis_mirror_fbcy(tm%hEnth, IPENCIL(1), fbcy, dm%knc_sym, dm%dccc, is_odd = .false.)
       dm%fbcy_ftp%h = fbcy
       call ftp_refresh_thermal_properties_from_H_3Dftp(dm%fbcy_ftp)
     end if
@@ -471,7 +479,7 @@ end function
   ! Function-based property update: use temperature
     if(fluidparam%ipropertyState == IPROPERTY_FUNCS) then
       fbcy = dm%fbcy_ftp%t
-      call axis_mirror_even_fbcy(tm%tTemp, fbcy, dm%knc_sym, dm%dccc)
+      call axis_mirror_fbcy(tm%tTemp, IPENCIL(1), fbcy, dm%knc_sym, dm%dccc, is_odd = .false.)
       dm%fbcy_ftp%t = fbcy
       call ftp_refresh_thermal_properties_from_T_undim_3Dftp(dm%fbcy_ftp)
     end if
@@ -479,144 +487,341 @@ end function
     return
   end subroutine update_fbcy_cc_thermo_halo
 !==========================================================================================================
-  !==========================================================================================================
-  !==========================================================================================================
-  subroutine axis_mirror_even_fbcy(var_xpencil, fbcy, ksym, dtmp)
-    type(DECOMP_INFO), intent(in) :: dtmp
-    real(WP), intent(in)          :: var_xpencil(:, :, :)
-    real(WP), intent(inout)       :: fbcy(:, :, :)
-    integer, intent(in)           :: ksym(:)
+  subroutine update_fbcy_cc_mhd_halo(mh, dm)  ! cylindrical pipe axis treatment only
+    implicit none
 
-    real(WP), dimension(dtmp%ysz(1), dtmp%ysz(2), dtmp%ysz(3)) :: var_ypencil, var_ypencil_sym
-    real(WP), dimension(dtmp%zsz(1), dtmp%zsz(2), dtmp%zsz(3)) :: var_zpencil, var_zpencil_sym
+    type(t_mhd),    intent(inout) :: mh
+    type(t_domain), intent(in)    :: dm
 
-    integer :: k
+    if (.not. dm%is_mhd) return
+    if (dm%icase /= ICASE_PIPE .or. dm%icoordinate /= ICYLINDRICAL) return
 
-    call transpose_x_to_y(var_xpencil, var_ypencil, dtmp)
-    call transpose_y_to_z(var_ypencil, var_zpencil, dtmp)
+  ! Electric potential : even symmetry across axis
+    if(mh%ibcy_ep(1) /= IBC_INTERIOR) &
+      call Print_error_msg('Error in ibcy_ep for the centre of the pipe.')
+    call axis_mirror_fbcy(mh%ep, IPENCIL(1), mh%fbcy_ep, dm%knc_sym, dm%dccc, is_odd = .false.)
 
-    do k = 1, dtmp%zsz(3)
-      var_zpencil_sym(:, :, k) = var_zpencil(:, :, ksym(k))
-    end do
+  ! Current density components
+    if(mh%ibcy_jx(1) /= IBC_INTERIOR) &
+      call Print_error_msg('Error in ibcy_jx for the centre of the pipe.')
+    call axis_mirror_fbcy(mh%jx, IPENCIL(1), mh%fbcy_jx, dm%knc_sym, dm%dpcc, is_odd = .false.)
 
-    call transpose_z_to_y(var_zpencil_sym, var_ypencil_sym, dtmp)
+    if(mh%ibcy_jy(1) /= IBC_INTERIOR) &
+      call Print_error_msg('Error in ibcy_jy for the centre of the pipe.')
+    call axis_mirror_fbcy(mh%jy, IPENCIL(1), mh%fbcy_jy, dm%knc_sym, dm%dcpc, is_odd = .true., &
+                          axis_mode = AXIS_RECON_ZERO, assign_axis_to_var = .true., nr = 0)
 
-    fbcy(:, 1, :) = var_ypencil_sym(:, 1, :)
-    fbcy(:, 3, :) = var_ypencil_sym(:, 2, :)
+    if(mh%ibcy_jz(1) /= IBC_INTERIOR) &
+      call Print_error_msg('Error in ibcy_jz for the centre of the pipe.')
+    call axis_mirror_fbcy(mh%jz, IPENCIL(1), mh%fbcy_jz, dm%knc_sym, dm%dccp, is_odd = .true.)
 
-    return
-  end subroutine axis_mirror_even_fbcy
-  !==========================================================================================================
+  ! Magnetic field components
+    if(mh%ibcy_bx(1) /= IBC_INTERIOR) &
+      call Print_error_msg('Error in ibcy_bx for the centre of the pipe.')
+    call axis_mirror_fbcy(mh%bx, IPENCIL(1), mh%fbcy_bx, dm%knc_sym, dm%dpcc, is_odd = .false.)
 
+    if(mh%ibcy_by(1) /= IBC_INTERIOR) &
+      call Print_error_msg('Error in ibcy_by for the centre of the pipe.')
+    call axis_mirror_fbcy(mh%by, IPENCIL(1), mh%fbcy_by, dm%knc_sym, dm%dcpc, is_odd = .true., &
+                          axis_mode = AXIS_RECON_ZERO, assign_axis_to_var = .true., nr = 0)
 
-  !==========================================================================================================
-  subroutine axis_mirror_odd_fbcy(var_xpencil, fbcy, ksym, dtmp)
-    type(DECOMP_INFO), intent(in) :: dtmp
-    real(WP), intent(in)          :: var_xpencil(:, :, :)
-    real(WP), intent(inout)       :: fbcy(:, :, :)
-    integer, intent(in)           :: ksym(:)
-
-    real(WP), dimension(dtmp%ysz(1), dtmp%ysz(2), dtmp%ysz(3)) :: var_ypencil, var_ypencil_sym
-    real(WP), dimension(dtmp%zsz(1), dtmp%zsz(2), dtmp%zsz(3)) :: var_zpencil, var_zpencil_sym
-
-    integer :: k
-
-    call transpose_x_to_y(var_xpencil, var_ypencil, dtmp)
-    call transpose_y_to_z(var_ypencil, var_zpencil, dtmp)
-
-    do k = 1, dtmp%zsz(3)
-      var_zpencil_sym(:, :, k) = - var_zpencil(:, :, ksym(k))
-    end do
-
-    call transpose_z_to_y(var_zpencil_sym, var_ypencil_sym, dtmp)
-
-    fbcy(:, 1, :) = var_ypencil_sym(:, 1, :)
-    fbcy(:, 3, :) = var_ypencil_sym(:, 2, :)
-
-    ! odd quantity must vanish at the axis
-    fbcy(:, 1, :) = ZERO
+    if(mh%ibcy_bz(1) /= IBC_INTERIOR) &
+      call Print_error_msg('Error in ibcy_bz for the centre of the pipe.')
+    call axis_mirror_fbcy(mh%bz, IPENCIL(1), mh%fbcy_bz, dm%knc_sym, dm%dccp, is_odd = .true.)
 
     return
-  end subroutine axis_mirror_odd_fbcy
-  !==========================================================================================================
-
-
+  end subroutine update_fbcy_cc_mhd_halo
 !==========================================================================================================
-  subroutine build_axis_qyr_fbcy(qy_xpencil, fbcy_qyr, ksym, dtmp, rpi)
-    ! Build halo values for qyr = qy / r = ur, treated as an even regular quantity.
-    ! Current implementation keeps the practical behaviour of your original code,
-    ! but isolates it from the generic mirroring routine.
+  !==========================================================================================================
+  !==========================================================================================================
+  subroutine axis_mirror_fbcy(var, pencil, fbcy, ksym, dtmp, is_odd, axis_mode, assign_axis_to_var, nr, opt_r, opt_dz, axis_rn_mode)
     use cylindrical_rn_mod
-    type(DECOMP_INFO), intent(in) :: dtmp
-    real(WP), intent(in)          :: qy_xpencil(:, :, :)
-    real(WP), intent(inout)       :: fbcy_qyr(:, :, :)
-    integer, intent(in)           :: ksym(:)
-    real(WP), intent(in)          :: rpi(:)
+    use math_mod
+    implicit none
+    type(DECOMP_INFO), intent(in)  :: dtmp
+    real(WP), intent(inout)        :: var(:, :, :)
+    real(WP), intent(inout)        :: fbcy(:, :, :)
+    integer, intent(in)            :: ksym(:)
+    integer, intent(in)            :: pencil
+    logical, intent(in), optional  :: is_odd
+    integer, intent(in), optional  :: axis_mode
+    logical, intent(in), optional  :: assign_axis_to_var
+    integer, intent(in), optional  :: nr
+    real(WP), intent(in), optional :: opt_r(:)
+    real(WP), intent(in), optional :: opt_dz
+    integer, intent(in), optional      :: axis_rn_mode
+    
+    !
+    real(WP), dimension(size(var,1), size(var,2), size(var,3)) :: dummy
+    real(WP), dimension(dtmp%ysz(1), dtmp%ysz(2), dtmp%ysz(3)) :: var_ypencil
+    real(WP), dimension(dtmp%ysz(1), dtmp%ysz(2), dtmp%ysz(3)) :: var_ypencil_sym
+    real(WP), dimension(dtmp%zsz(1), dtmp%zsz(2), dtmp%zsz(3)) :: var_zpencil, var_zpencil_sym
 
-    real(WP), dimension(dtmp%xsz(1), dtmp%xsz(2), dtmp%xsz(3)) :: qyr_xpencil
-    real(WP), dimension(dtmp%ysz(1), dtmp%ysz(2), dtmp%ysz(3)) :: qyr_ypencil, qyr_ypencil_sym
-    real(WP), dimension(dtmp%zsz(1), dtmp%zsz(2), dtmp%zsz(3)) :: qyr_zpencil, qyr_zpencil_sym
+    integer :: i, k, axis_mode_local, nr_local
+    real(WP) :: sign_sym
+    real(WP), dimension(dtmp%zsz(1)) :: ucart_z, ucart_y, ucart_0, ucart_2c, ucart_2s
+    real(WP) :: theta
 
-    integer :: k
+    dummy = var
+    axis_mode_local = AXIS_RECON_NONE
+    nr_local = 0
+    if(present(axis_mode)) axis_mode_local = axis_mode
+    if(present(nr)) nr_local = nr
+    if(nr_local > 0) then
+      if(.not. present(opt_r)) call Print_error_msg("Wrong usage of axis_mirror_fbcy - 1")
+      call multiple_cylindrical_rn(dummy, dtmp, opt_r, nr_local, pencil)
+    end if
+    call transpose_to_z_pencil(dummy, var_zpencil, dtmp, pencil)
 
-    qyr_xpencil = qy_xpencil
-    call multiple_cylindrical_rn(qyr_xpencil, dtmp, rpi, 1, IPENCIL(1))   ! qyr = qy / r
-
-    call transpose_x_to_y(qyr_xpencil, qyr_ypencil, dtmp)
-    call transpose_y_to_z(qyr_ypencil, qyr_zpencil, dtmp)
-
+    sign_sym = ONE
+    if (present(is_odd)) then
+      if (is_odd) sign_sym = -ONE
+    end if
     do k = 1, dtmp%zsz(3)
-      qyr_zpencil_sym(:, :, k) = qyr_zpencil(:, :, ksym(k))
+      var_zpencil_sym(:, :, k) = sign_sym * var_zpencil(:, :, ksym(k))
     end do
 
-    call transpose_z_to_y(qyr_zpencil_sym, qyr_ypencil_sym, dtmp)
+    call reconstruct_axis_ring(var_zpencil_sym, var_zpencil, dtmp, axis_mode_local, opt_dz)
 
-    fbcy_qyr(:, 1, :) = qyr_ypencil_sym(:, 1, :)
-    fbcy_qyr(:, 3, :) = qyr_ypencil_sym(:, 2, :)
+    call transpose_z_to_y(var_zpencil_sym, var_ypencil_sym, dtmp)
+    fbcy(:, 1, :) = var_ypencil_sym(:, 1, :)
+    fbcy(:, 3, :) = var_ypencil_sym(:, 2, :)
 
-    ! Axis value of qyr=ur is a regular limit quantity.
-    ! Keep current practical averaging from neighbouring interior values.
-    fbcy_qyr(:, 1, :) = HALF * (qyr_ypencil_sym(:, 2, :) + qyr_ypencil(:, 2, :))
+    if(axis_mode_local == AXIS_RECON_ZERO) then
+      fbcy(:, 1, :) = ZERO
+    end if
+
+    if(present(assign_axis_to_var)) then
+      if(assign_axis_to_var) then
+        if(.not. present(nr)) call Print_error_msg("Wrong usage of axis_mirror_fbcy - 2")
+        if(nr_local /= 0) call Print_error_msg("Wrong usage of axis_mirror_fbcy - 3")
+        call transpose_to_y_pencil(var, var_ypencil, dtmp, pencil)
+        var_ypencil(:, 1, :) =  fbcy(:, 1, :)
+        call transpose_from_y_pencil(var_ypencil, var, dtmp, pencil)
+      end if
+    end if
 
     return
-  end subroutine build_axis_qyr_fbcy
+  contains
+    subroutine reconstruct_axis_ring(var_zsym, var_zsrc, dtmp_loc, axis_mode_loc, opt_dz_loc)
+      real(WP), intent(inout) :: var_zsym(:, :, :)
+      real(WP), intent(in)    :: var_zsrc(:, :, :)
+      type(DECOMP_INFO), intent(in) :: dtmp_loc
+      integer, intent(in) :: axis_mode_loc
+      real(WP), intent(in), optional :: opt_dz_loc
+      integer :: i, k
+      real(WP) :: theta
+
+      select case(axis_mode_loc)
+      case (AXIS_RECON_NONE, AXIS_RECON_ZERO)
+        return
+      case (AXIS_RECON_M0)
+        if(dtmp_loc%zst(2) == 1) then
+          do i = 1, dtmp_loc%zsz(1)
+            do k = 1, dtmp_loc%zsz(3)
+              var_zsym(i, 1, k) = HALF * (var_zsym(i, 2, k) + var_zsrc(i, 2, k))
+            end do
+            ucart_z(i) = sum(var_zsym(i, 1, :)) / real(dtmp_loc%zsz(3), WP)
+            var_zsym(i, 1, :) = ucart_z(i)
+          end do
+        end if
+      case (AXIS_RECON_M0_M2)
+        if(.not. present(opt_dz_loc)) call Print_error_msg("Wrong usage of axis_mirror_fbcy - 4")
+        if(dtmp_loc%zst(2) == 1) then
+          do i = 1, dtmp_loc%zsz(1)
+            ucart_0(i)  = ZERO
+            ucart_2c(i) = ZERO
+            ucart_2s(i) = ZERO
+
+            do k = 1, dtmp_loc%zsz(3)
+              var_zsym(i, 1, k) = HALF * (var_zsym(i, 2, k) + var_zsrc(i, 2, k))
+              theta = opt_dz_loc * real((k - 1), WP)
+              ucart_0(i)  = ucart_0(i)  + var_zsym(i, 1, k)
+              ucart_2c(i) = ucart_2c(i) + var_zsym(i, 1, k) * cos_wp(TWO * theta)
+              ucart_2s(i) = ucart_2s(i) + var_zsym(i, 1, k) * sin_wp(TWO * theta)
+            end do
+
+            ucart_0(i)  = ucart_0(i) / real(dtmp_loc%zsz(3), WP)
+            ucart_2c(i) = ucart_2c(i) * TWO / real(dtmp_loc%zsz(3), WP)
+            ucart_2s(i) = ucart_2s(i) * TWO / real(dtmp_loc%zsz(3), WP)
+
+            do k = 1, dtmp_loc%zsz(3)
+              theta = opt_dz_loc * real((k - 1), WP)
+              var_zsym(i, 1, k) = ucart_0(i) + &
+                                  ucart_2c(i) * cos_wp(TWO * theta) + &
+                                  ucart_2s(i) * sin_wp(TWO * theta)
+            end do
+          end do
+        end if
+      case (AXIS_RECON_M1)
+        if(.not. present(opt_dz_loc)) call Print_error_msg("Wrong usage of axis_mirror_fbcy - 5")
+        if(dtmp_loc%zst(2) == 1) then
+          do i = 1, dtmp_loc%zsz(1)
+            ucart_y(i) = ZERO
+            ucart_z(i) = ZERO
+
+            do k = 1, dtmp_loc%zsz(3)
+              var_zsym(i, 1, k) = HALF * (var_zsym(i, 2, k) + var_zsrc(i, 2, k))
+              theta = opt_dz_loc * real((k - 1), WP)
+              ucart_z(i) = ucart_z(i) + var_zsym(i, 1, k) * cos_wp(theta)
+              ucart_y(i) = ucart_y(i) + var_zsym(i, 1, k) * sin_wp(theta)
+            end do
+
+            ucart_z(i) = ucart_z(i) * TWO / real(dtmp_loc%zsz(3), WP)
+            ucart_y(i) = ucart_y(i) * TWO / real(dtmp_loc%zsz(3), WP)
+
+            do k = 1, dtmp_loc%zsz(3)
+              theta = opt_dz_loc * real((k - 1), WP)
+              var_zsym(i, 1, k) = ucart_z(i) * cos_wp(theta) + ucart_y(i) * sin_wp(theta)
+            end do
+          end do
+        end if
+      case default
+        call Print_error_msg("Wrong usage of axis_mirror_fbcy - 6")
+      end select
+    end subroutine reconstruct_axis_ring
+  end subroutine axis_mirror_fbcy
+
+!   subroutine build_axis_axpx_r_fbcy(axpx_xpencil, fbcy_ar, ksym, dtmp, rpi, dtheta)
+!     ! qyr = qy/r = ur.
+!     ! ur is a cylindrical vector component.
+!     ! Across the axis: ur(r,theta) = -ur(r,theta+pi).
+!     ! The axis value is reconstructed from regular Cartesian transverse components.
+!     use cylindrical_rn_mod
+!     use math_mod
+!     type(DECOMP_INFO), intent(in) :: dtmp
+!     real(WP), intent(in)          :: axpx_xpencil(:, :, :)
+!     real(WP), intent(inout)       :: fbcy_ar(:, :, :)
+!     integer, intent(in)           :: ksym(:)
+!     real(WP), intent(in)          :: rpi(:)
+!     real(WP), intent(in)          :: dtheta
+
+!     real(WP), dimension(dtmp%xsz(1), dtmp%xsz(2), dtmp%xsz(3)) :: qyr_xpencil
+!     real(WP), dimension(dtmp%ysz(1), dtmp%ysz(2), dtmp%ysz(3)) :: qyr_ypencil, qyr_ypencil_sym
+!     real(WP), dimension(dtmp%zsz(1), dtmp%zsz(2), dtmp%zsz(3)) :: qyr_zpencil, qyr_zpencil_sym
+
+!     real(WP), dimension(dtmp%zsz(1)) :: ucart_z, ucart_y
+!     integer :: i, k
+!     real(WP) :: theta
+
+!     qyr_xpencil = axpx_xpencil
+!     call multiple_cylindrical_rn(qyr_xpencil, dtmp, rpi, 1, IPENCIL(1))   ! qyr = qy / r
+
+!     call transpose_x_to_y(qyr_xpencil, qyr_ypencil, dtmp)
+!     call transpose_y_to_z(qyr_ypencil, qyr_zpencil, dtmp)
+
+!     do k = 1, dtmp%zsz(3)
+!       qyr_zpencil_sym(:, :, k) = - qyr_zpencil(:, :, ksym(k))
+!     end do
+
+!     call transpose_z_to_y(qyr_zpencil_sym, qyr_ypencil_sym, dtmp)
+!     qyr_ypencil(:, 1, :) = (qyr_ypencil_sym(:, 2, :) + qyr_ypencil(:, 2, :)) * HALF
+!     call transpose_y_to_z(qyr_ypencil, qyr_zpencil_sym, dtmp)
+
+!     ! Reconstruct the regular axis-limit value using the same azimuthal
+!     ! extracting the first Fourier mode by direct summation
+!     !  |z
+!     !  |___y
+!     if(dtmp%zst(2) == 1) then
+!       do i = 1, dtmp%zsz(1)
+!         ucart_y(i) = ZERO
+!         ucart_z(i) = ZERO
+
+!         do k = 1, dtmp%zsz(3)
+!           theta = dtheta * real((k - 1), WP)
+!           ucart_z(i) = ucart_z(i) + qyr_zpencil_sym(i, 1, k) * cos_wp(theta)
+!           ucart_y(i) = ucart_y(i) + qyr_zpencil_sym(i, 1, k) * sin_wp(theta)
+!         end do
+
+!         ucart_z(i) = ucart_z(i) * TWO / real(dtmp%zsz(3), WP)
+!         ucart_y(i) = ucart_y(i) * TWO / real(dtmp%zsz(3), WP)
+
+!         do k = 1, dtmp%zsz(3)
+!           theta = dtheta * real((k - 1), WP)
+!           qyr_zpencil_sym(i, 1, k) = ucart_z(i) * cos_wp(theta) + ucart_y(i) * sin_wp(theta)
+!         end do
+!       end do
+!     end if
+
+!     call transpose_z_to_y(qyr_zpencil_sym, qyr_ypencil_sym, dtmp)
+
+!     fbcy_ar(:, 1, :) = qyr_ypencil_sym(:, 1, :)
+!     fbcy_ar(:, 3, :) = qyr_ypencil_sym(:, 2, :)
+
+!     return
+!   end subroutine build_axis_axpx_r_fbcy
+!   !==========================================================================================================
+
+! !==========================================================================================================
+!   subroutine build_axis_qyr_fbcy(qy_xpencil, fbcy_qyr, ksym, dtmp, rpi, dtheta)
+!     ! qyr = qy/r = ur.
+!     ! ur is a cylindrical vector component.
+!     ! Across the axis: ur(r,theta) = -ur(r,theta+pi).
+!     ! The axis value is reconstructed from regular Cartesian transverse components.
+!     use cylindrical_rn_mod
+!     use math_mod
+!     type(DECOMP_INFO), intent(in) :: dtmp
+!     real(WP), intent(in)          :: qy_xpencil(:, :, :)
+!     real(WP), intent(inout)       :: fbcy_qyr(:, :, :)
+!     integer, intent(in)           :: ksym(:)
+!     real(WP), intent(in)          :: rpi(:)
+!     real(WP), intent(in)          :: dtheta
+
+!     real(WP), dimension(dtmp%xsz(1), dtmp%xsz(2), dtmp%xsz(3)) :: qyr_xpencil
+!     real(WP), dimension(dtmp%ysz(1), dtmp%ysz(2), dtmp%ysz(3)) :: qyr_ypencil, qyr_ypencil_sym
+!     real(WP), dimension(dtmp%zsz(1), dtmp%zsz(2), dtmp%zsz(3)) :: qyr_zpencil, qyr_zpencil_sym
+
+!     real(WP), dimension(dtmp%zsz(1)) :: ucart_z, ucart_y
+!     integer :: i, k
+!     real(WP) :: theta
+
+!     qyr_xpencil = qy_xpencil
+!     call multiple_cylindrical_rn(qyr_xpencil, dtmp, rpi, 1, IPENCIL(1))   ! qyr = qy / r
+
+!     call transpose_x_to_y(qyr_xpencil, qyr_ypencil, dtmp)
+!     call transpose_y_to_z(qyr_ypencil, qyr_zpencil, dtmp)
+
+!     do k = 1, dtmp%zsz(3)
+!       qyr_zpencil_sym(:, :, k) = - qyr_zpencil(:, :, ksym(k))
+!     end do
+
+!     call transpose_z_to_y(qyr_zpencil_sym, qyr_ypencil_sym, dtmp)
+!     qyr_ypencil(:, 1, :) = (qyr_ypencil_sym(:, 2, :) + qyr_ypencil(:, 2, :)) * HALF
+!     call transpose_y_to_z(qyr_ypencil, qyr_zpencil_sym, dtmp)
+
+!     ! Reconstruct the regular axis-limit value using the same azimuthal
+!     ! extracting the first Fourier mode by direct summation
+!     !  |z
+!     !  |___y
+!     if(dtmp%zst(2) == 1) then
+!       do i = 1, dtmp%zsz(1)
+!         ucart_y(i) = ZERO
+!         ucart_z(i) = ZERO
+
+!         do k = 1, dtmp%zsz(3)
+!           theta = dtheta * real((k - 1), WP)
+!           ucart_z(i) = ucart_z(i) + qyr_zpencil_sym(i, 1, k) * cos_wp(theta)
+!           ucart_y(i) = ucart_y(i) + qyr_zpencil_sym(i, 1, k) * sin_wp(theta)
+!         end do
+
+!         ucart_z(i) = ucart_z(i) * TWO / real(dtmp%zsz(3), WP)
+!         ucart_y(i) = ucart_y(i) * TWO / real(dtmp%zsz(3), WP)
+
+!         do k = 1, dtmp%zsz(3)
+!           theta = dtheta * real((k - 1), WP)
+!           qyr_zpencil_sym(i, 1, k) = ucart_z(i) * cos_wp(theta) + ucart_y(i) * sin_wp(theta)
+!         end do
+!       end do
+!     end if
+
+!     call transpose_z_to_y(qyr_zpencil_sym, qyr_ypencil_sym, dtmp)
+
+!     fbcy_qyr(:, 1, :) = qyr_ypencil_sym(:, 1, :)
+!     fbcy_qyr(:, 3, :) = qyr_ypencil_sym(:, 2, :)
+
+!     return
+!   end subroutine build_axis_qyr_fbcy
   !==========================================================================================================
-
-
-!==========================================================================================================
-  subroutine build_axis_qzr_fbcy(qz_xpencil, fbcy_qzr, fbcy_qz, ksym, dtmp, rci)
-    ! Build halo values for qzr = qz / r, treated as an even regular quantity.
-    ! This keeps your current low-order practical treatment, but isolates it so it
-    ! can later be replaced by a dedicated axis-limit stencil.
-    type(DECOMP_INFO), intent(in) :: dtmp
-    real(WP), intent(in)          :: qz_xpencil(:, :, :)
-    real(WP), intent(inout)       :: fbcy_qzr(:, :, :)
-    real(WP), intent(in)          :: fbcy_qz(:, :, :)
-    integer, intent(in)           :: ksym(:)
-    real(WP), intent(in)          :: rci(:)
-
-    real(WP), dimension(dtmp%ysz(1), dtmp%ysz(2), dtmp%ysz(3)) :: qz_ypencil, qz_ypencil_sym
-    real(WP), dimension(dtmp%zsz(1), dtmp%zsz(2), dtmp%zsz(3)) :: qz_zpencil, qz_zpencil_sym
-
-    integer :: k
-
-    call transpose_x_to_y(qz_xpencil, qz_ypencil, dtmp)
-    call transpose_y_to_z(qz_ypencil, qz_zpencil, dtmp)
-
-    do k = 1, dtmp%zsz(3)
-      qz_zpencil_sym(:, :, k) = qz_zpencil(:, :, ksym(k))
-    end do
-
-    call transpose_z_to_y(qz_zpencil_sym, qz_ypencil_sym, dtmp)
-
-    ! qzr = qz / r is even and finite at the axis.
-    ! Off-axis halo locations follow mirrored values divided by local r.
-    ! The axis plane itself is approximated from the first off-axis mirrored value.
-    fbcy_qzr(:, 1, :) = qz_ypencil_sym(:, 2, :) * rci(1)
-    fbcy_qzr(:, 3, :) = fbcy_qz(:, 3, :)      * rci(2)
-
-    return
-  end subroutine build_axis_qzr_fbcy
   !==========================================================================================================
 
 ! !==========================================================================================================
@@ -1088,9 +1293,9 @@ end function
 !==========================================================================================================
 !==========================================================================================================
   subroutine get_fbcx_iTh(ibc, dm, fbc, tm, opt_k)
-    use udf_type_mod
     use parameters_constant_mod
     use thermo_info_mod
+    use udf_type_mod
     implicit none
     integer, intent(in) :: ibc(2)
     type(t_domain), intent(in) :: dm
@@ -1126,9 +1331,9 @@ end function
   end subroutine 
 !==========================================================================================================
   subroutine get_fbcy_iTh(ibc, dm, fbc, tm, opt_k)
-    use udf_type_mod
     use parameters_constant_mod
     use thermo_info_mod
+    use udf_type_mod
     implicit none
     integer, intent(in) :: ibc(2)
     type(t_domain), intent(in) :: dm
@@ -1165,9 +1370,9 @@ end function
   end subroutine 
 !==========================================================================================================
   subroutine get_fbcz_iTh(ibc, dm, fbc, tm, opt_k)
-    use udf_type_mod
     use parameters_constant_mod
     use thermo_info_mod
+    use udf_type_mod
     implicit none
     integer, intent(in) :: ibc(2)
     type(t_domain), intent(in) :: dm

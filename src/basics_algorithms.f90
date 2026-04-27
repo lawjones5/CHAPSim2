@@ -149,8 +149,8 @@ contains
 !==========================================================================================================
   subroutine Test_TDMA_noncyclic
     !use iso_fortran_env
-    use precision_mod
     use math_mod
+    use precision_mod
     implicit none
     integer, parameter :: n = 10
     real(WP) :: a(n), b(n), c(n), d(n), r(n)
@@ -195,8 +195,8 @@ contains
   end subroutine Test_TDMA_noncyclic
 !==========================================================================================================
   subroutine Test_TDMA_cyclic
-    use precision_mod
     use math_mod
+    use precision_mod
     !use iso_fortran_env
     implicit none
     integer, parameter :: n = 10

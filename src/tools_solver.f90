@@ -101,10 +101,10 @@ contains
   end subroutine Update_PrGr
 !==========================================================================================================
   subroutine Calculate_vis_sponge(fl, dm)
+    use math_mod
     use parameters_constant_mod
     use thermo_info_mod
     use udf_type_mod
-    use math_mod
     implicit none
     !
     type(t_domain), intent(in)    :: dm
@@ -238,9 +238,9 @@ contains
 !> \param[inout]            
 !==========================================================================================================
   subroutine Adjust_to_xzmean_zero(var, dtmp, n, varxz)
+    use io_files_mod
     use mpi_mod
     use udf_type_mod
-    use io_files_mod
     implicit none
     type(DECOMP_INFO),  intent(in) :: dtmp
     integer,            intent(in) :: n
@@ -286,11 +286,11 @@ contains
 !> \param[inout]         
 !==========================================================================================================
 subroutine Check_cfl_diffusion(fl, dm, opt_tm)
-    use parameters_constant_mod
-    use udf_type_mod
     use mpi_mod
-    use wtformat_mod
+    use parameters_constant_mod
     use print_msg_mod
+    use udf_type_mod
+    use wtformat_mod
     
     implicit none
     type(t_flow), intent(in) :: fl
@@ -396,13 +396,13 @@ subroutine Check_cfl_diffusion(fl, dm, opt_tm)
 !> \param[inout]         
 !==========================================================================================================
   subroutine Check_cfl_convection(u, v, w, dm)
-    use parameters_constant_mod
-    use udf_type_mod
-    use operations
     use decomp_2d
-    use wtformat_mod
     use find_max_min_ave_mod
     use math_mod, only: abs_wp
+    use operations
+    use parameters_constant_mod
+    use udf_type_mod
+    use wtformat_mod
     implicit none
 
     type(t_domain), intent(inout) :: dm
@@ -683,10 +683,10 @@ subroutine Check_cfl_diffusion(fl, dm, opt_tm)
   !==========================================================================================================
   !==========================================================================================================
   subroutine get_fbcx_ftp_4pc(fbcx_ftp_4cc, fbcx_ftp_4pc, dm)
-    use udf_type_mod
-    use parameters_constant_mod
     use operations
+    use parameters_constant_mod
     use print_msg_mod
+    use udf_type_mod
     implicit none 
     type(t_domain), intent(in) :: dm
     real(WP), dimension(dm%d4cc%xsz(1), dm%d4cc%xsz(2), dm%d4cc%xsz(3)), intent(in)  :: fbcx_ftp_4cc
@@ -739,9 +739,9 @@ subroutine Check_cfl_diffusion(fl, dm, opt_tm)
 
   !==========================================================================================================
   subroutine check_global_mass_balance(mass_imbalance, drhodt, dm)
-    use udf_type_mod
-    use parameters_constant_mod
     use find_max_min_ave_mod
+    use parameters_constant_mod
+    use udf_type_mod
     implicit none
     real(WP), dimension(:,:,:), intent(in) :: drhodt
     type(t_domain), intent(in) :: dm
@@ -815,9 +815,9 @@ subroutine Check_cfl_diffusion(fl, dm, opt_tm)
 
  !==========================================================================================================
   subroutine damping_drhodt(accc_xpencil, dm)
-    use udf_type_mod
-    use transpose_extended_mod
     use parameters_constant_mod
+    use transpose_extended_mod
+    use udf_type_mod
     implicit none
     type(t_domain), intent(in) :: dm
     real(WP), intent(inout) :: accc_xpencil(:, :, :)

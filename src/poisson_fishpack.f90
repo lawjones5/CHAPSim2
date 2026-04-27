@@ -222,8 +222,8 @@ contains
 !==========================================================================================================
 !==========================================================================================================
   subroutine get_fft_type(ibc, itype)
-    use print_msg_mod
     use parameters_constant_mod
+    use print_msg_mod
     implicit none
     ! arguments
     integer, intent(in) :: ibc(2)
@@ -252,10 +252,10 @@ contains
 !==========================================================================================================
 !==========================================================================================================
   subroutine fishpack_fft_init(dm)
-    use udf_type_mod
-    use parameters_constant_mod
     use io_files_mod
+    use parameters_constant_mod
     use print_msg_mod
+    use udf_type_mod
     implicit none
     type(t_domain), intent(in) :: dm
 

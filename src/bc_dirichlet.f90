@@ -1,7 +1,7 @@
 module bc_dirichlet_mod
-  use udf_type_mod
   use parameters_constant_mod
   use print_msg_mod
+  use udf_type_mod
   implicit none
   character(18) :: filename(5)
 
@@ -24,8 +24,8 @@ contains
   !==========================================================================================================
   !==========================================================================================================
   subroutine extract_dirichlet_fbcx(fbc, var, dtmp)
-    use udf_type_mod
     use parameters_constant_mod
+    use udf_type_mod
     implicit none
     type(DECOMP_INFO), intent(in) :: dtmp
     real(WP), intent(out) :: fbc(4,           dtmp%xsz(2), dtmp%xsz(3))
@@ -40,8 +40,8 @@ contains
   end subroutine 
   !==========================================================================================================
   subroutine extract_dirichlet_fbcy(fbc, var, dtmp, dm, is_reversed)
-    use udf_type_mod
     use parameters_constant_mod
+    use udf_type_mod
     implicit none
     type(DECOMP_INFO), intent(in) :: dtmp
     type(t_domain), intent(in) :: dm
@@ -87,8 +87,8 @@ contains
   end subroutine 
   !==========================================================================================================
   subroutine extract_dirichlet_fbcz(fbc, var, dtmp)
-    use udf_type_mod
     use parameters_constant_mod
+    use udf_type_mod
     implicit none
     type(DECOMP_INFO), intent(in) :: dtmp
     real(WP), intent(in)  :: var(dtmp%zsz(1), dtmp%zsz(2), dtmp%zsz(3))
@@ -424,8 +424,8 @@ contains
 !==========================================================================================================
 !==========================================================================================================
   subroutine initialise_fbc_thermo_given(tm, dm) ! call this after scaling the fbc_ftp values
-    use thermo_info_mod
     use decomp_2d
+    use thermo_info_mod
     type(t_domain), intent(inout) :: dm
     type(t_thermo), intent(inout)    :: tm
 
@@ -566,9 +566,9 @@ contains
   end subroutine 
 !==========================================================================================================
   subroutine enforce_velo_from_fbc(dm, ux, uy, uz, fbcx0, fbcy0, fbcz0)
-    use udf_type_mod
     use parameters_constant_mod
     use print_msg_mod
+    use udf_type_mod
     implicit none 
     type(t_domain), intent(in) :: dm
     real(WP), dimension(dm%dpcc%xsz(1), dm%dpcc%xsz(2), dm%dpcc%xsz(3)), intent (inout) :: ux

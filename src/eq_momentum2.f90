@@ -1,7 +1,7 @@
 module eq_momentum_mod
+  use decomp_2d
   use operations
   use precision_mod
-  use decomp_2d
   use print_msg_mod
   use wrt_debug_field_mod
   implicit none
@@ -19,9 +19,10 @@ module eq_momentum_mod
 contains
 !==========================================================================================================
   subroutine gravity_decomposition_to_rz(dens, iforce, fgravity, fr_cpc_ypencil, ft_ccp_zpencil, dm)
+    use boundary_conditions_mod
+    use cylindrical_rn_mod
     use math_mod
     use udf_type_mod
-    use cylindrical_rn_mod
     implicit none
     type(t_domain), intent(in) :: dm
     INTEGER, intent(in) :: iforce
@@ -49,7 +50,10 @@ contains
     call transpose_x_to_y(dens, accc_ypencil, dm%dccc)
     fbcy_c4c(:, :, :) = dm%fbcy_ftp(:, :, :)%d
     call Get_y_midp_C2P_3D(accc_ypencil, acpc_ypencil, dm, dm%iAccuracy, dm%ibcy_ftp, fbcy_c4c)
-    !call axis_estimating_radial_xpx(acpc_ypencil, dm%dcpc, IPENCIL(2), dm, IDIM(1))
+    if(dm%icase==ICASE_PIPE) then
+      call axis_mirror_fbcy(acpc_ypencil, IPENCIL(2), fbcy_c4c, dm%knc_sym, dm%dcpc, is_odd = .false., &
+                            axis_mode = AXIS_RECON_M0, assign_axis_to_var = .true., nr = 0)
+    end if
 #ifdef DEBUG_STEPS  
     if(dm%icase == ICASE_PIPE) then
       write(*,*) 'density', acpc_ypencil(4, 1, 4),  acpc_ypencil(4, 1, dm%knc_sym(4)) , &
@@ -159,15 +163,15 @@ contains
 !> \brief To calcuate all rhs of momentum eq.
 !==========================================================================================================
   subroutine Compute_momentum_rhs(fl, dm, isub, opt_dens, opt_visc)
-    use parameters_constant_mod
-    use udf_type_mod
+    use boundary_conditions_mod
+    use cylindrical_rn_mod
+    use find_max_min_ave_mod
     use operations
+    use parameters_constant_mod
     use solver_tools_mod
     use typeconvert_mod
-    use boundary_conditions_mod
+    use udf_type_mod
     use wrt_debug_field_mod
-    use find_max_min_ave_mod
-    use cylindrical_rn_mod
     implicit none
     ! arguments
     type(t_flow),   intent(inout) :: fl
@@ -420,29 +424,25 @@ contains
     !
     call transpose_x_to_y (fl%qx, apcc_ypencil, dm%dpcc) !apcc_ypencil = qx_ypencil
     call Get_y_1der_C2P_3D(apcc_ypencil, qxdy_ppc_ypencil, dm, dm%iAccuracy, dm%ibcy_qx, dm%fbcy_qx)
-    !
-! #ifdef DEBUG_STEPS  
-!     ! serial only
-!     if(dm%icase == ICASE_PIPE) then
-!       write(*,*) 'qxdy_ppc_ypencil', qxdy_ppc_ypencil(4, 1, 4),  qxdy_ppc_ypencil(4, 1, dm%knc_sym(4)) , &
-!                   qxdy_ppc_ypencil(4, 1, 4)+qxdy_ppc_ypencil(4, 1, dm%knc_sym(4))
-!     end if
-! #endif
+    if(dm%icase==ICASE_PIPE) then
+      call axis_mirror_fbcy(qxdy_ppc_ypencil, IPENCIL(2), fbcy_p4c, dm%knc_sym, dm%dppc, is_odd = .true., &
+                          axis_mode = AXIS_RECON_M1, assign_axis_to_var = .true., nr = 0, opt_dz = dm%h(3))
+    end if
     !
     call transpose_y_to_x(qxdy_ppc_ypencil, qxdy_ppc_xpencil, dm%dppc)
     !
     call Get_y_midp_C2P_3D(apcc_ypencil, qxiy_ppc_ypencil, dm, dm%iAccuracy, dm%ibcy_qx, dm%fbcy_qx) ! for x-mom
-    !call axis_estimating_radial_xpx(qxiy_ppc_ypencil, dm%dppc, IPENCIL(2), dm, IDIM(1))
-! #ifdef DEBUG_STEPS  
-!     ! serial only
-!     if(dm%icase == ICASE_PIPE) then
-!       write(*,*) 'qxiy_ppc_ypencil', qxiy_ppc_ypencil(4, 1, 4),  qxiy_ppc_ypencil(4, 1, dm%knc_sym(4)) , &
-!                   qxiy_ppc_ypencil(4, 1, 4)-qxiy_ppc_ypencil(4, 1, dm%knc_sym(4))
-!     end if
-! #endif
+    if(dm%icase==ICASE_PIPE) then
+      call axis_mirror_fbcy(qxiy_ppc_ypencil, IPENCIL(2), fbcy_p4c, dm%knc_sym, dm%dppc, is_odd = .false., &
+                          axis_mode = AXIS_RECON_M0, assign_axis_to_var = .true., nr = 0, opt_dz = dm%h(3))
+    end if
     !
     if(.not. dm%is_thermo) then
       call transpose_y_to_x (qxiy_ppc_ypencil, qxiy_ppc_xpencil, dm%dppc)
+      if(dm%icase==ICASE_PIPE) then
+        call axis_mirror_fbcy(qxiy_ppc_xpencil, IPENCIL(1), fbcy_p4c, dm%knc_sym, dm%dppc, is_odd = .false., &
+                            axis_mode = AXIS_RECON_M0, assign_axis_to_var = .true., nr = 0, opt_dz = dm%h(3))
+      end if
     end if
     !
     call transpose_y_to_z (apcc_ypencil, apcc_zpencil, dm%dpcc)!apcc_zpencil = qx_zpencil
@@ -511,8 +511,6 @@ contains
     end if
     !
     call transpose_x_to_y (fl%qy, acpc_ypencil, dm%dcpc) !acpc_ypencil = qy_ypencil
-! #ifdef DEBUG_STEPS  
-!     ! serial only
 !     if(dm%icase == ICASE_PIPE) then
 !       write(*,*) 'qy_ypencil', acpc_ypencil(4, 1, 4),  acpc_ypencil(4, 1, dm%knc_sym(4)) , &
 !                   acpc_ypencil(4, 1, 4)-acpc_ypencil(4, 1, dm%knc_sym(4))
@@ -558,6 +556,10 @@ contains
       call Get_y_midp_P2C_3D(acpc_ypencil, accc_ypencil,     dm, dm%iAccuracy, dm%ibcy_qy, dm%fbcy_qy)
       call Get_y_1der_C2P_3D(accc_ypencil, qydy_cpc_ypencil, dm, dm%iAccuracy, dm%ibcy_qy, dm%fbcy_qy)
 !write(*,*) 'qydy_cpc_ypencil', qydy_cpc_ypencil(4, 1, 1), qydy_cpc_ypencil(4, 1, dm%knc_sym(1)) ! not symmetric, correct
+      if(dm%icase==ICASE_PIPE) then
+        call axis_mirror_fbcy(qydy_cpc_ypencil, IPENCIL(2), fbcy_c4c, dm%knc_sym, dm%dcpc, is_odd = .true., &
+                            axis_mode = AXIS_RECON_M1, assign_axis_to_var = .true., nr = 0, opt_dz = dm%h(3))
+      end if
     end if
     if(is_fbcz_velo_required) then
       !qyiz_cpp_zpencil --> qydy_ccp_zpencil  for div b.c.
@@ -596,27 +598,16 @@ contains
     !end if
     call transpose_x_to_y(fl%qz, accp_ypencil, dm%dccp) ! qz_ypencil
     call Get_y_midp_C2P_3D(accp_ypencil, qziy_cpp_ypencil, dm, dm%iAccuracy, dm%ibcy_qz, dm%fbcy_qz) ! z-mom
-    !call axis_estimating_radial_xpx(qziy_cpp_ypencil, dm%dcpp, IPENCIL(2), dm, IDIM(3))
-! #ifdef DEBUG_STEPS  
-!     ! serial only
-!     if(dm%icase == ICASE_PIPE) then
-!       write(*,*) 'qziy_cpp_ypencil', qziy_cpp_ypencil(4, 1, 4),  qziy_cpp_ypencil(4, 1, dm%knc_sym(4)) , &
-!                   qziy_cpp_ypencil(4, 1, 4)+qziy_cpp_ypencil(4, 1, dm%knc_sym(4))
-!     end if
-! #endif
-    !
-    call Get_y_1der_C2P_3D(accp_ypencil, qzdy_cpp_ypencil, dm, dm%iAccuracy, dm%ibcy_qz, dm%fbcy_qz) ! check !
-    !if(dm%icase == ICASE_PIPE) qzdy_cpp_ypencil(:, 1, :) = ZERO ! check , test
-! #ifdef DEBUG_STEPS  
-!     ! serial only
-!     if(dm%icase == ICASE_PIPE) then
-!       write(*,*) 'qzdy_cpp_ypencil', qzdy_cpp_ypencil(4, 1, 4),  qzdy_cpp_ypencil(4, 1, dm%knc_sym(4)) , &
-!                   qzdy_cpp_ypencil(4, 1, 4)-qzdy_cpp_ypencil(4, 1, dm%knc_sym(4))
-!     end if
-! #endif
-!qzdy_cpp_ypencil(:, 1, :) = ZERO ! check , test
-!write(*,*) 'qzdy_cpp_ypencil', qzdy_cpp_ypencil(4, 1, 1), qzdy_cpp_ypencil(4, 1, dm%knc_sym(1)) ! correct, symmetric
-    !
+    if(dm%icase==ICASE_PIPE) then
+      call axis_mirror_fbcy(qziy_cpp_ypencil, IPENCIL(2), fbcy_c4p, dm%knc_sym, dm%dcpp, is_odd = .true., &
+                            axis_mode = AXIS_RECON_M1, assign_axis_to_var = .true., nr = 0, opt_dz = dm%h(3))
+    end if
+
+    call Get_y_1der_C2P_3D(accp_ypencil, qzdy_cpp_ypencil, dm, dm%iAccuracy, dm%ibcy_qz, dm%fbcy_qz) ! check !!
+    if(dm%icase==ICASE_PIPE) then
+      call axis_mirror_fbcy(qzdy_cpp_ypencil, IPENCIL(2), fbcy_c4p, dm%knc_sym, dm%dcpp, is_odd = .false., &
+                            axis_mode = AXIS_RECON_M0_M2, assign_axis_to_var = .true., nr = 0, opt_dz = dm%h(3))
+    end if
     call transpose_y_to_z(qzdy_cpp_ypencil, qzdy_cpp_zpencil, dm%dcpp)
     !
     if((.not. dm%is_thermo) .or. (dm%icoordinate == ICYLINDRICAL)) then
@@ -656,8 +647,6 @@ contains
       end if
       call Get_z_1der_P2C_3D(acpp_zpencil, acpc_zpencil, dm, dm%iAccuracy, dm%ibcz_qz, fbcz_cp4) !acpc_zpencil = qzdz
       call transpose_z_to_y(acpc_zpencil, qzdz_cpc_ypencil, dm%dcpc)
-! #ifdef DEBUG_STEPS  
-!     ! serial only
 !     if(dm%icase == ICASE_PIPE) then
 !       write(*,*) 'qzdz_cpc_ypencil', qzdz_cpc_ypencil(4, 1, 4),  qzdz_cpc_ypencil(4, 1, dm%knc_sym(4)) , &
 !                   qzdz_cpc_ypencil(4, 1, 4)+qzdz_cpc_ypencil(4, 1, dm%knc_sym(4))
@@ -703,15 +692,20 @@ contains
       !
       call transpose_x_to_y (fl%gx, apcc_ypencil, dm%dpcc) !gx_ypencil
       call Get_y_midp_C2P_3D(apcc_ypencil, appc_ypencil, dm, dm%iAccuracy, dm%ibcy_qx, dm%fbcy_gx)
-      !call axis_estimating_radial_xpx(appc_ypencil, dm%dppc, IPENCIL(2), dm, IDIM(1))
-! #ifdef DEBUG_STEPS  
-!     ! serial only
+      if(dm%icase==ICASE_PIPE) then
+        call axis_mirror_fbcy(appc_ypencil, IPENCIL(2), fbcy_p4c, dm%knc_sym, dm%dppc, is_odd = .false., &
+                              axis_mode = AXIS_RECON_M0, assign_axis_to_var = .true., nr = 0)
+      end if
 !     if(dm%icase == ICASE_PIPE) then
 !       write(*,*) 'gxiy_ppc_ypencil', appc_ypencil(4, 1, 4),  appc_ypencil(4, 1, dm%knc_sym(4)) , &
 !                   appc_ypencil(4, 1, 4)-appc_ypencil(4, 1, dm%knc_sym(4))
 !     end if
 ! #endif
       call transpose_y_to_x (appc_ypencil, gxiy_ppc_xpencil, dm%dppc)
+      if(dm%icase==ICASE_PIPE) then
+        call axis_mirror_fbcy(gxiy_ppc_xpencil, IPENCIL(1), fbcy_p4c, dm%knc_sym, dm%dppc, is_odd = .false., &
+                            axis_mode = AXIS_RECON_M0, assign_axis_to_var = .true., nr = 0, opt_dz = dm%h(3))
+      end if
       !
       call transpose_y_to_z (apcc_ypencil, apcc_zpencil, dm%dpcc)!gx_zpencil
       call Get_z_midp_C2P_3D(apcc_zpencil, apcp_zpencil, dm, dm%iAccuracy, dm%ibcz_qx, dm%fbcz_gx)
@@ -757,14 +751,10 @@ contains
       !
       call transpose_x_to_y(fl%gz, accp_ypencil, dm%dccp) ! gz_ypencil
       call Get_y_midp_C2P_3D(accp_ypencil, gziy_cpp_ypencil, dm, dm%iAccuracy, dm%ibcy_qz, dm%fbcy_gz)
-      !call axis_estimating_radial_xpx(acpp_ypencil, dm%dcpp, IPENCIL(2), dm, IDIM(3))
-! #ifdef DEBUG_STEPS 
-!     ! serial only
-!     if(dm%icase == ICASE_PIPE) then
-!       write(*,*) 'gziy_cpp_ypencil', gziy_cpp_ypencil(4, 1, 4),  gziy_cpp_ypencil(4, 1, dm%knc_sym(4)) , &
-!                   gziy_cpp_ypencil(4, 1, 4)-gziy_cpp_ypencil(4, 1, dm%knc_sym(4))
-!     end if
-! #endif
+      if(dm%icase==ICASE_PIPE) then
+        call axis_mirror_fbcy(gziy_cpp_ypencil, IPENCIL(2), fbcy_c4p, dm%knc_sym, dm%dcpp, is_odd = .true., &
+                              axis_mode = AXIS_RECON_M1, assign_axis_to_var = .true., nr = 0, opt_dz = dm%h(3))
+      end if
       call transpose_y_to_z(gziy_cpp_ypencil, gziy_cpp_zpencil, dm%dcpp)
       !
       call transpose_y_to_z(accp_ypencil, accp_zpencil, dm%dccp) ! gz_zpencil
@@ -810,9 +800,11 @@ contains
       call transpose_y_to_z(mu_ccc_ypencil, mu_ccc_zpencil, dm%dccc)
       !
       call Get_y_midp_C2P_3D(mu_ccc_ypencil, acpc_ypencil, dm, dm%iAccuracy, dm%ibcy_ftp, fbcy_c4c)
+      if(dm%icase==ICASE_PIPE) then
+        call axis_mirror_fbcy(acpc_ypencil, IPENCIL(2), fbcy_c4c, dm%knc_sym, dm%dcpc, is_odd = .false., &
+                              axis_mode = AXIS_RECON_M0, assign_axis_to_var = .true., nr = 0)
+      end if
       !call axis_estimating_radial_xpx(acpc_ypencil, dm%dcpc, IPENCIL(2), dm, IDIM(1))
-! #ifdef DEBUG_STEPS  
-!     ! serial only
 !     if(dm%icase == ICASE_PIPE) then
 !       write(*,*) 'mu_cpc_ypencil', acpc_ypencil(4, 1, 4),  acpc_ypencil(4, 1, dm%knc_sym(4)) , &
 !                   acpc_ypencil(4, 1, 4)-acpc_ypencil(4, 1, dm%knc_sym(4))
@@ -823,7 +815,6 @@ contains
       ! FIXME: need to add fbcx_4pc = MAXP for the case where is_fbcx_velo_required = .false.
       if(is_fbcx_velo_required) call get_fbcx_ftp_4pc(fbcx_4cc, fbcx_4pc, dm)
       call Get_x_midp_C2P_3D(acpc_xpencil, muixy_ppc_xpencil, dm, dm%iAccuracy, dm%ibcx_ftp, fbcx_4pc)
-
       !
       call transpose_x_to_y(muixy_ppc_xpencil, muixy_ppc_ypencil, dm%dppc)
       !
@@ -874,10 +865,7 @@ contains
       acpc_xpencil = fl%qy
       call multiple_cylindrical_rn(acpc_xpencil, dm%dcpc, dm%rpi, 1, IPENCIL(1)) ! qr/r
       call transpose_x_to_y(acpc_xpencil, qyr_ypencil, dm%dcpc) ! acpc_ypencil = qyr_ypencil
-      !qyr_ypencil(:, 1, :) = dm%fbcy_qyr(:, 1, :)
-      call axis_estimating_radial_xpx(qyr_ypencil, dm%dcpc, IPENCIL(2), dm, IDIM(2), is_reversed = .true.)
-! #ifdef DEBUG_STEPS  
-!     ! serial only
+      !call axis_estimating_radial_xpx(qyr_ypencil, dm%dcpc, IPENCIL(2), dm, IDIM(2), is_reversed = .true.)
 !     if(dm%icase == ICASE_PIPE) then
 !       write(*,*) 'qyr_ypencil', qyr_ypencil(4, 1, 4),  qyr_ypencil(4, 1, dm%knc_sym(4)) , &
 !                   qyr_ypencil(4, 1, 4)-qyr_ypencil(4, 1, dm%knc_sym(4))
@@ -902,15 +890,8 @@ contains
       acpc_xpencil = fl%qy
       call multiple_cylindrical_rn(acpc_xpencil, dm%dcpc, dm%rpi, 2, IPENCIL(1)) ! qr/r^2
       call transpose_x_to_y(acpc_xpencil, qyr2_ypencil, dm%dcpc) ! acpc_ypencil = qr/r^2_ypencil
-      call axis_estimating_radial_xpx(qyr2_ypencil, dm%dcpc, IPENCIL(2), dm, IDIM(2), is_reversed = .true.)
-!write(*,*) 'qyr2_ypencil', qyr2_ypencil(4, 1, 1:4)
-! #ifdef DEBUG_STEPS  
-!     ! serial only
-!     if(dm%icase == ICASE_PIPE) then
-!       write(*,*) 'qyr2_ypencil', qyr2_ypencil(4, 1, 4),  qyr2_ypencil(4, 1, dm%knc_sym(4)) , &
-!                   qyr2_ypencil(4, 1, 4)+qyr2_ypencil(4, 1, dm%knc_sym(4))
-!     end if
-! #endif
+      !call build_axis_axpx_r_fbcy(qyr2_ypencil, fbcy_cpc, dm%knc_sym, dm%dcpc, dm%rpi, dm%h(3))
+      !call axis_estimating_radial_xpx(qyr2_ypencil, dm%dcpc, IPENCIL(2), dm, IDIM(2), is_reversed = .true.)
       !
       call transpose_y_to_z(qyr2_ypencil, acpc_zpencil, dm%dcpc)
       call Get_z_1der_C2P_3D(acpc_zpencil, qyr2dz_cpp_zpencil, dm, dm%iAccuracy, dm%ibcz_qy, dm%fbcz_qyr) ! to check, this bc is not used for peridoic z
@@ -921,7 +902,7 @@ contains
       call Print_debug_mid_msg('qyr preparation ... done.')
 #endif
 !----------------------------------------------------------------------------------------------------------
-!    qz/r=qzr
+!    qzr = qz/r, with qz = u_theta
 !    | -[x2y]-> qzr_ypencil(temp) 
 !               | -[ipy]-> qzriy_cpp_ypencil -[y2z]-> qzriy_cpp_zpencil
 !               | -[1dy]-> qzrdy_cpp_ypencil -[y2z]-> qzrdy_cpp_zpencil
@@ -931,22 +912,17 @@ contains
        call multiple_cylindrical_rn(accp_xpencil, dm%dccp, dm%rci, 1, IPENCIL(1)) ! qz/r
        call transpose_x_to_y(accp_xpencil, accp_ypencil, dm%dccp)
        call Get_y_midp_C2P_3D(accp_ypencil, qzriy_cpp_ypencil, dm, dm%iAccuracy, dm%ibcy_qz, dm%fbcy_qzr)
-       !call axis_estimating_radial_xpx(qzriy_cpp_ypencil, dm%dcpp, IPENCIL(2), dm, IDIM(0))
-! #ifdef DEBUG_STEPS  
-!     ! serial only
-!     if(dm%icase == ICASE_PIPE) then
-!       write(*,*) 'qzriy_cpp_ypencil', qzriy_cpp_ypencil(4, 1, 4),  qzriy_cpp_ypencil(4, 1, dm%knc_sym(4)) , &
-!                   qzriy_cpp_ypencil(4, 1, 4)+qzriy_cpp_ypencil(4, 1, dm%knc_sym(4))
-!     end if
-! #endif
+       if(dm%icase==ICASE_PIPE) then
+         call axis_mirror_fbcy(qzriy_cpp_ypencil, IPENCIL(2), fbcy_c4p, dm%knc_sym, dm%dcpp, is_odd = .true., &
+                               axis_mode = AXIS_RECON_M1, assign_axis_to_var = .true., nr = 0, opt_dz = dm%h(3))
+       end if
+
        call transpose_y_to_z(qzriy_cpp_ypencil, qzriy_cpp_zpencil, dm%dcpp)
       !
       if(is_fbcy_velo_required) then
         call Get_z_1der_P2C_3D(qzriy_cpp_zpencil, acpc_zpencil, dm, dm%iAccuracy, dm%ibcz_qz) ! accc_zpencil = d(qz/r)/dz
         call transpose_z_to_y(acpc_zpencil, qzrdz_cpc_ypencil, dm%dcpc)
       end if
-! #ifdef DEBUG_STEPS
-!     ! serial only
 !     if(dm%icase == ICASE_PIPE) then
 !       write(*,*) 'qzrdz_cpc_ypencil', qzrdz_cpc_ypencil(4, 1, 4),  qzrdz_cpc_ypencil(4, 1, dm%knc_sym(4)) , &
 !                   qzrdz_cpc_ypencil(4, 1, 4)+qzrdz_cpc_ypencil(4, 1, dm%knc_sym(4))
@@ -1001,9 +977,10 @@ contains
       fbcy_div_c4c = fbcy_div_c4c1
 
       acpc_ypencil = qydy_cpc_ypencil
-      if(dm%icoordinate == ICYLINDRICAL) &
-      call multiple_cylindrical_rn(acpc_ypencil, dm%dcpc, dm%rpi, 1, IPENCIL(2)) ! (qydy)/r_cpc_ypencil
-      call axis_estimating_radial_xpx(acpc_ypencil, dm%dcpc, IPENCIL(2), dm, IDIM(2), is_reversed = .true.)
+      if(dm%icoordinate == ICYLINDRICAL) then
+        call multiple_cylindrical_rn(acpc_ypencil, dm%dcpc, dm%rpi, 1, IPENCIL(2)) ! (qydy)/r_cpc_ypencil
+      end if
+      !call axis_estimating_radial_xpx(acpc_ypencil, dm%dcpc, IPENCIL(2), dm, IDIM(2), is_reversed = .true.)
 ! #ifdef DEBUG_STEPS  
 !       ! serial only
 !     if(dm%icase == ICASE_PIPE) then
@@ -1351,6 +1328,12 @@ contains
     else
       fbcy_c4c = MAXP
     end if
+    ! Pipe-centre reconstruction guide for y C2P/P2C fields:
+    !   AXIS_RECON_M0    for scalar-like node values
+    !   AXIS_RECON_M1    for radial/azimuthal vector-like values, or radial derivatives of scalars
+    !   AXIS_RECON_M0_M2 for products of M1 fields, or radial derivatives of M1 fields
+    ! Hence terms such as (qy/r)*qy, gz*qz, d(qy/r)/dy, and
+    ! [2*mu*(1/r*qzdz +/- 1/r*qyriy - 1/3*div)] are treated as even M0+M2 fields at the pipe centre.
     !------bulk-----
     if(dm%icoordinate == ICYLINDRICAL) then
       accc_ypencil1 = qyriy_ccc_ypencil
@@ -1365,6 +1348,10 @@ contains
     accc_ypencil = - accc_ypencil1 * accc_ypencil
     !------PDE----- calculation
     call Get_y_1der_C2P_3D( accc_ypencil, acpc_ypencil, dm, dm%iAccuracy, mbcy_cov2, fbcy_c4c)
+    if(dm%icase==ICASE_PIPE) then
+      call axis_mirror_fbcy(acpc_ypencil, IPENCIL(2), fbcy_c4c, dm%knc_sym, dm%dcpc, is_odd = .false., &
+                            axis_mode = AXIS_RECON_M0_M2, assign_axis_to_var = .true., nr = 0, opt_dz = dm%h(3))
+    end if
     my_rhs_ypencil = my_rhs_ypencil + acpc_ypencil
 #ifdef DEBUG_STEPS
     !write(*,*) 'cony-pp1', accc_ypencil1(1, 1:4, 1)
@@ -1450,7 +1437,11 @@ contains
       accc_ypencil = accc_ypencil * qziz_ccc_ypencil 
       !------PDE-----
       call Get_y_midp_C2P_3D(accc_ypencil, acpc_ypencil, dm, dm%iAccuracy, mbcr_cov2, fbcy_c4c)
-      call axis_estimating_radial_xpx(acpc_ypencil, dm%dcpc, IPENCIL(2), dm, IDIM(2), is_reversed = .true.)
+      if(dm%icase == ICASE_PIPE) then
+        call axis_mirror_fbcy(acpc_ypencil, IPENCIL(2), fbcy_c4c, dm%knc_sym, dm%dcpc, is_odd = .false., &
+                          axis_mode = AXIS_RECON_M0_M2, assign_axis_to_var = .true., nr = 0, opt_dz = dm%h(3))
+      end if
+      
           
       my_rhs_ypencil = my_rhs_ypencil + acpc_ypencil
 #ifdef DEBUG_STEPS
@@ -1471,7 +1462,11 @@ contains
 ! Y-mom pressure gradient in y direction, Y-pencil, d(sigma_1 p)
 ! p-m2 = - r * dpdy
 !----------------------------------------------------------------------------------------------------------
-    call Get_y_1der_C2P_3D( -pres_ypencil * dm%sigma1p, acpc_ypencil, dm, dm%iAccuracy, dm%ibcy_pr, -dm%fbcy_pr)
+    call Get_y_1der_C2P_3D( -pres_ypencil * dm%sigma1p, acpc_ypencil, dm, dm%iAccuracy, dm%ibcy_pr, -dm%fbcy_pr* dm%sigma1p)
+    if(dm%icase==ICASE_PIPE) then
+      call axis_mirror_fbcy(acpc_ypencil, IPENCIL(2), fbcy_c4c, dm%knc_sym, dm%dcpc, is_odd = .true., &
+                            axis_mode = AXIS_RECON_M1, assign_axis_to_var = .true., nr = 0, opt_dz = dm%h(3))
+    end if
     if(dm%icoordinate == ICYLINDRICAL) &
     call multiple_cylindrical_rn(acpc_ypencil, dm%dcpc, dm%rp, 1, IPENCIL(2))
     my_rhs_pfc_ypencil =  my_rhs_pfc_ypencil + acpc_ypencil
@@ -1535,6 +1530,10 @@ contains
       if(dm%icoordinate == ICYLINDRICAL) then
         call Get_y_midp_P2C_3D(qyr_ypencil,  accc_ypencil, dm, dm%iAccuracy, dm%ibcy_qy, dm%fbcy_qyr)
         call Get_y_1der_C2P_3D(accc_ypencil, acpc_ypencil, dm, dm%iAccuracy, dm%ibcy_qy, dm%fbcy_qyr) ! acpc_ypencil = d(qyr)/dy
+        if(dm%icase==ICASE_PIPE) then
+          call axis_mirror_fbcy(acpc_ypencil, IPENCIL(2), fbcy_c4c, dm%knc_sym, dm%dcpc, is_odd = .false., &
+                                axis_mode = AXIS_RECON_M0_M2, assign_axis_to_var = .true., nr = 0, opt_dz = dm%h(3))
+        end if
         call extract_dirichlet_fbcy(fbcy_c4c, acpc_ypencil, dm%dcpc, dm, is_reversed = .true.) ! fbcy_c4c = fbcy_dqyrdy_c4c
       else if(dm%icoordinate == ICARTESIAN) then
         call extract_dirichlet_fbcy(fbcy_c4c, qydy_cpc_ypencil, dm%dcpc, dm, is_reversed = .true.)
@@ -1559,6 +1558,10 @@ contains
     call multiple_cylindrical_rn(accc_ypencil, dm%dccc, dm%rc, 1, IPENCIL(2))
     ! ------PDE-----
     call Get_y_1der_C2P_3D(accc_ypencil,  acpc_ypencil, dm, dm%iAccuracy, mbcy_tau2, fbcy_c4c) 
+    if(dm%icase==ICASE_PIPE) then
+      call axis_mirror_fbcy(acpc_ypencil, IPENCIL(2), fbcy_c4c, dm%knc_sym, dm%dcpc, is_odd = .false., &
+                            axis_mode = AXIS_RECON_M0_M2, assign_axis_to_var = .true., nr = 0, opt_dz = dm%h(3))
+    end if
     my_rhs_ypencil = my_rhs_ypencil + acpc_ypencil * fl%rre
 #ifdef DEBUG_STEPS
     write(*,*) 'visy-pp', fbcy_mu_c4c(1, 1:4, 1)
@@ -1620,6 +1623,10 @@ contains
       accc_ypencil = (accc_ypencil - ONE_THIRD * div_ccc_ypencil + accc_ypencil1) * TWO * mu_ccc_ypencil
       !------PDE------
       call Get_y_midp_C2P_3D(accc_ypencil, acpc_ypencil, dm, dm%iAccuracy, mbcr_tau2, fbcy_c4c)
+      if(dm%icase==ICASE_PIPE) then
+        call axis_mirror_fbcy(acpc_ypencil, IPENCIL(2), fbcy_c4c, dm%knc_sym, dm%dcpc, is_odd = .false., &
+                              axis_mode = AXIS_RECON_M0_M2, assign_axis_to_var = .true., nr = 0, opt_dz = dm%h(3))
+      end if
       !call axis_estimating_radial_xpx ! not needed as b.c. for uy is specified.
       my_rhs_ypencil =  my_rhs_ypencil - acpc_ypencil * fl%rre
 #ifdef DEBUG_STEPS
@@ -1640,6 +1647,10 @@ contains
         if(dm%icoordinate == ICYLINDRICAL) then
           call Get_y_midp_P2C_3D(qyr_ypencil,  accc_ypencil, dm, dm%iAccuracy, dm%ibcy_qy, dm%fbcy_qyr)
           call Get_y_1der_C2P_3D(accc_ypencil, acpc_ypencil, dm, dm%iAccuracy, dm%ibcy_qy, dm%fbcy_qyr) ! acpc_ypencil = d(qyr)/dy
+          if(dm%icase==ICASE_PIPE) then
+            call axis_mirror_fbcy(acpc_ypencil, IPENCIL(2), fbcy_c4c, dm%knc_sym, dm%dcpc, is_odd = .false., &
+                                  axis_mode = AXIS_RECON_M0_M2, assign_axis_to_var = .true., nr = 0, opt_dz = dm%h(3))
+          end if
           call extract_dirichlet_fbcy(fbcy_c4c, acpc_ypencil, dm%dcpc, dm, is_reversed = .true.) ! fbcy_c4c = fbcy_dqyrdy_c4c
         else if(dm%icoordinate == ICARTESIAN) then
           call extract_dirichlet_fbcy(fbcy_c4c, qydy_cpc_ypencil, dm%dcpc, dm, is_reversed = .true.)
@@ -1665,6 +1676,10 @@ contains
       ! ------PDE-----
       acpc_ypencil1 = ZERO
       call Get_y_1der_C2P_3D(accc_ypencil, acpc_ypencil1, dm, dm%iAccuracy, mbcy_tau2, fbcy_c4c) 
+      if(dm%icase==ICASE_PIPE) then
+        call axis_mirror_fbcy(acpc_ypencil1, IPENCIL(2), fbcy_c4c, dm%knc_sym, dm%dcpc, is_odd = .false., &
+                              axis_mode = AXIS_RECON_M0_M2, assign_axis_to_var = .true., nr = 0, opt_dz = dm%h(3))
+      end if
       !----------------------------------------------
       ! Y-mom diffusion term 3/4 at (i, j', k)
       ! diff-z-m2 = d[muiyz * (qzdy + qyr2dz - qzriy]/dz       
@@ -1706,6 +1721,10 @@ contains
         accc_ypencil = (accc_ypencil + accc_ypencil1) * TWO
         !------PDE------
         call Get_y_midp_C2P_3D(accc_ypencil, acpc_ypencil, dm, dm%iAccuracy, mbcr_tau2, fbcy_c4c)
+        if(dm%icase==ICASE_PIPE) then
+          call axis_mirror_fbcy(acpc_ypencil, IPENCIL(2), fbcy_c4c, dm%knc_sym, dm%dcpc, is_odd = .false., &
+                                axis_mode = AXIS_RECON_M0_M2, assign_axis_to_var = .true., nr = 0, opt_dz = dm%h(3))
+        end if
       end if
       !----all terms ---
       acpc_ypencil = acpc_ypencil1 + acpc_ypencil
@@ -2228,11 +2247,12 @@ contains
 !==========================================================================================================
 !==========================================================================================================
   subroutine Correct_massflux(fl, phi_ccc, dm, isub)
-    use udf_type_mod
+    use boundary_conditions_mod
+    use cylindrical_rn_mod
     use input_general_mod
     use operations
     use parameters_constant_mod
-    use cylindrical_rn_mod
+    use udf_type_mod
     implicit none
     type(t_flow),   intent(inout) :: fl
     type(t_domain), intent(in) :: dm
@@ -2250,6 +2270,7 @@ contains
     real(WP), dimension( dm%dccc%ysz(1), dm%dccc%ysz(2), dm%dccc%ysz(3) ) :: phi_ccc_ypencil
     real(WP), dimension( dm%dcpc%ysz(1), dm%dcpc%ysz(2), dm%dcpc%ysz(3) ) :: dphidy_cpc_ypencil
     real(WP), dimension( dm%dccp%ysz(1), dm%dccp%ysz(2), dm%dccp%ysz(3) ) :: dphidz_ccp_ypencil
+    real(WP), dimension( dm%dcpc%ysz(1), 4, dm%dcpc%ysz(3) )              :: fbcy_c4c
     
     real(WP), dimension( dm%dccc%zsz(1), dm%dccc%zsz(2), dm%dccc%zsz(3) ) :: pphi_ccc_zpencil
     real(WP), dimension( dm%dccp%zsz(1), dm%dccp%zsz(2), dm%dccp%zsz(3) ) :: dphidz_ccp_zpencil
@@ -2280,9 +2301,13 @@ contains
     phi_ccc_ypencil = ZERO
     dphidy_cpc_ypencil = ZERO
     dphidy_cpc = ZERO
+    fbcy_c4c(:, :, :) = dm%fbcy_pr(:, :, :)
     call transpose_x_to_y (phi_ccc, phi_ccc_ypencil, dm%dccc)
     call Get_y_1der_C2P_3D(phi_ccc_ypencil, dphidy_cpc_ypencil, dm, dm%iAccuracy, dm%ibcy_pr, dm%fbcy_pr)
-    !call axis_estimating_radial_xpx(dphidy_cpc_ypencil, dm%dcpc, IPENCIL(2), dm, IDIM(1))
+    if(dm%icase==ICASE_PIPE) then
+      call axis_mirror_fbcy(dphidy_cpc_ypencil, IPENCIL(2), fbcy_c4c, dm%knc_sym, dm%dcpc, is_odd = .true., &
+                            axis_mode = AXIS_RECON_M1, assign_axis_to_var = .true., nr = 0, opt_dz = dm%h(3))
+    end if
     call transpose_y_to_x (dphidy_cpc_ypencil, dphidy_cpc, dm%dcpc)
     if(dm%icoordinate == ICYLINDRICAL) &
     call multiple_cylindrical_rn(dphidy_cpc, dm%dcpc, dm%rp, 1, IPENCIL(1))
@@ -2317,13 +2342,13 @@ contains
 
 !==========================================================================================================
   subroutine solve_pressure_poisson(fl, dm, isub)
-    use udf_type_mod
-    use parameters_constant_mod
-    use poisson_interface_mod
     use continuity_eq_mod
     use cylindrical_rn_mod
     use find_max_min_ave_mod
+    use parameters_constant_mod
+    use poisson_interface_mod
     use typeconvert_mod
+    use udf_type_mod
     !use visualisation_field_mod
     use solver_tools_mod
     implicit none
@@ -2498,7 +2523,6 @@ contains
     use udf_type_mod
 #ifdef DEBUG_STEPS
     use io_tools_mod
-    use typeconvert_mod
     use wtformat_mod
 #endif
     implicit none
@@ -2554,43 +2578,13 @@ contains
       ! to update velocity/massflux correction
       !if(nrank == 0) call Print_debug_inline_msg("  Updating velocity/mass flux ...")
       call Correct_massflux(fl, fl%pcor, dm, isub)
-      !call correct_convective_outlet_flow(fl, dm, isub)
-      if ( .not. dm%is_thermo) then
-        call enforce_velo_from_fbc(dm, fl%qx, fl%qy, fl%qz, dm%fbcx_qx, dm%fbcy_qy, dm%fbcz_qz)
-      else
-        call enforce_velo_from_fbc(dm, fl%gx, fl%gy, fl%gz, dm%fbcx_gx, dm%fbcy_gy, dm%fbcz_gz)
-      end if
-      if(dm%icase == ICASE_PIPE) call update_fbcy_cc_flow_halo(fl, dm)
-#ifdef DEBUG_STEPS
-      call check_global_mass_balance(mass_imbalance, fl%drhodt, dm)
-      write(*,*) 'mass_imbalance after correction', mass_imbalance
-#endif
-#ifdef DEBUG_STEPS
       if(dm%is_thermo) then
-      call wrt_3d_pt_debug(fl%gx, dm%dpcc,   fl%iteration, isub, 'gx_updated') ! debug_ww
-      call wrt_3d_pt_debug(fl%gy, dm%dcpc,   fl%iteration, isub, 'gy_updated') ! debug_ww
-      call wrt_3d_pt_debug(fl%gz, dm%dccp,   fl%iteration, isub, 'gz_updated') ! debug_ww
+        call enforce_velo_from_fbc(dm, fl%gx, fl%gy, fl%gz, dm%fbcx_gx, dm%fbcy_gy, dm%fbcz_gz)
+        call convert_primary_conservative(dm, fl%dDens, IG2Q, IALL, fl%qx, fl%qy, fl%qz, fl%gx, fl%gy, fl%gz)
       end if
-      call Check_element_mass_conservation(fl, dm, opt_isub=isub) 
-#endif
+      call enforce_velo_from_fbc(dm, fl%qx, fl%qy, fl%qz, dm%fbcx_qx, dm%fbcy_qy, dm%fbcz_qz)
+      if(dm%icase == ICASE_PIPE) call update_fbcy_cc_flow_halo(fl, dm)
     end if
-    !----------------------------------------------------------------
-    ! to update velocity from gx gy gz 
-    !----------------------------------------------------------------
-    if(dm%is_thermo) then
-      call convert_primary_conservative(dm, fl%dDens, IG2Q, IALL, fl%qx, fl%qy, fl%qz, fl%gx, fl%gy, fl%gz)
-    end if
-
-#ifdef DEBUG_STEPS
-  call wrt_3d_pt_debug(fl%qx, dm%dpcc,   fl%iteration, isub, 'qx_updated') ! debug_ww
-  call wrt_3d_pt_debug(fl%qy, dm%dcpc,   fl%iteration, isub, 'qy_updated') ! debug_ww
-  call wrt_3d_pt_debug(fl%qz, dm%dccp,   fl%iteration, isub, 'qz_updated') ! debug_ww
-  if(nrank == 0) then
-    call Print_debug_inline_msg("Conservative parameters have been updated.")
-    ! write(*,*) 'updated qx', fl%qx(1:4, 1, 1)
-    ! write(*,*) 'updated qx', fl%qx(1, 1:4, 1)
-  end if
-#endif
 
     return
   end subroutine Solve_momentum_eq

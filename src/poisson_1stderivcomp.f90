@@ -96,9 +96,9 @@ module fft2decomp_interface_mod
 contains
 !==========================================================================================================
   subroutine build_up_fft2decomp_interface(dm)
-    use udf_type_mod
-    use parameters_constant_mod
     use operations
+    use parameters_constant_mod
+    use udf_type_mod
     implicit none
     type(t_domain), intent(in) :: dm
 
@@ -3182,8 +3182,8 @@ contains
   end subroutine matrice_refinement
 !=====================================
 subroutine avg3d (var, avg)
-  use decomp_2d_mpi
   use decomp_2d, only: xsize, xend
+  use decomp_2d_mpi
   !use param
   !use dbg_schemes, only: sqrt_prec
   !use variables, only: nx,ny,nz,nxm,nym,nzm

@@ -1,9 +1,9 @@
 !##############################################################################
 module mpi_mod
   !include "mpif.h"
-  use MPI
   use decomp_2d
   use decomp_2d_mpi
+  use MPI
   !use iso_fortran_env
   implicit none
   integer :: ierror
@@ -434,8 +434,8 @@ module wtformat_mod
 end module wtformat_mod
 !==========================================================================================================
 module udf_type_mod
-  use parameters_constant_mod, only: NDIM, NBC, WP
   use mpi_mod
+  use parameters_constant_mod, only: NDIM, NBC, WP
   implicit none
 !----------------------------------------------------------------------------------------------------------
 !  fluid thermal property info
@@ -616,14 +616,14 @@ module udf_type_mod
     real(wp), allocatable :: fbcx_qz(:, :, :) ! variable bc
     real(wp), allocatable :: fbcy_qz(:, :, :) ! variable bc
     real(wp), allocatable :: fbcz_qz(:, :, :) ! variable bc
-    real(wp), allocatable :: fbcy_qzr(:, :, :) ! qz/r = u_theta bc at y dirction
-    real(wp), allocatable :: fbcz_qzr(:, :, :) ! qz/r = u_theta bc at z dirction
+    real(wp), allocatable :: fbcy_qzr(:, :, :) ! qz/r bc at y dirction
+    real(wp), allocatable :: fbcz_qzr(:, :, :) ! qz/r bc at z dirction
 
     real(wp), allocatable :: fbcx_gz(:, :, :) ! variable bc
     real(wp), allocatable :: fbcy_gz(:, :, :) ! variable bc
     real(wp), allocatable :: fbcz_gz(:, :, :) ! variable bc
-    !real(wp), allocatable :: fbcy_gzr(:, :, :) ! gz/r = rho * u_theta bc at y dirction
-    !real(wp), allocatable :: fbcz_gzr(:, :, :) ! gz/r = rho * u_theta bc at z dirction
+    !real(wp), allocatable :: fbcy_gzr(:, :, :) ! gz/r bc at y dirction
+    !real(wp), allocatable :: fbcz_gzr(:, :, :) ! gz/r bc at z dirction
 
     real(wp), allocatable :: fbcx_pr(:, :, :) ! variable bc
     real(wp), allocatable :: fbcy_pr(:, :, :) ! variable bc
@@ -900,6 +900,7 @@ module vars_df_mod
 end module
 !==========================================================================================================
 module io_files_mod
+  use parameters_constant_mod, only : is_IO_off
   implicit none
   character(8) :: dir_code='0_src'
   character(9) :: dir_data='1_data'
@@ -924,6 +925,7 @@ contains
 
   subroutine create_directory
     implicit none
+    if(is_IO_off) return
     call system('mkdir -p '//dir_code)
     call system('mkdir -p '//dir_data)
     call system('mkdir -p '//dir_visu)
@@ -934,8 +936,8 @@ contains
 end module
 !==========================================================================================================
 module math_mod
-  use precision_mod
   use parameters_constant_mod
+  use precision_mod
   implicit none
 
   interface sqrt_wp

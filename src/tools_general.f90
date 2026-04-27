@@ -125,10 +125,10 @@ end module
 
 !==========================================================================================================
 module code_performance_mod
-  use parameters_constant_mod
-  use typeconvert_mod
   use mpi_mod
+  use parameters_constant_mod
   use print_msg_mod
+  use typeconvert_mod
   implicit none
   
   integer, parameter :: CPU_TIME_CODE_START = 1, &
@@ -504,8 +504,8 @@ module random_number_generation_mod
 contains
 
   subroutine generate_random11_fortran (i, j, k, n, nx, ny, rd)
-    use parameters_constant_mod, only: WP, ONE
     use flatten_index_mod
+    use parameters_constant_mod, only: WP, ONE
     implicit none
     integer, intent(in) :: i, j, k, n, nx, ny
     real(wp), intent(out) :: rd
@@ -521,9 +521,9 @@ contains
 
 
   subroutine generate_random11_stateless_hash (i, j, k, n, rd)
-    use parameters_constant_mod, only: WP, ONE, TWO
     use iso_fortran_env, only : int32, int64
     use math_mod
+    use parameters_constant_mod, only: WP, ONE, TWO
     implicit none
     integer, intent(in) :: i, j, k, n
     real(wp), intent(out) :: rd
@@ -572,8 +572,8 @@ contains
 
 
   subroutine generate_random11_mixhash (i, j, k, n, rd)
-    use parameters_constant_mod, only: WP, ONE, TWO
     use iso_fortran_env, only : int32, int64
+    use parameters_constant_mod, only: WP, ONE, TWO
     implicit none
     integer, intent(in) :: i, j, k, n
     real(wp), intent(out) :: rd
@@ -817,8 +817,8 @@ contains
   ! This works with nvfortran
   subroutine lcg_random(seed, r)
 
-    use parameters_constant_mod, only : ONE, TWO
     use iso_fortran_env, only: int32
+    use parameters_constant_mod, only : ONE, TWO
 
     implicit none
 
@@ -932,10 +932,10 @@ module wrt_debug_field_mod
   public :: wrt_3d_pt_debug
 contains
   subroutine wrt_3d_pt_debug(var, dtmp, iter, irk, loc)
-    use precision_mod
-    use udf_type_mod
-    use print_msg_mod
     use io_files_mod
+    use precision_mod
+    use print_msg_mod
+    use udf_type_mod
     
     implicit none 
     type(DECOMP_INFO), intent(in) :: dtmp
@@ -993,10 +993,10 @@ contains
 
   !==========================================================================================================
   subroutine wrt_3d_all_debug(var, dtmp, iter, str, loc)
-    use precision_mod
-    use udf_type_mod
-    use print_msg_mod
     use io_files_mod
+    use precision_mod
+    use print_msg_mod
+    use udf_type_mod
     
     implicit none 
     type(DECOMP_INFO), intent(in) :: dtmp
@@ -1265,11 +1265,16 @@ end module
 !============================================================================
 !============================================================================
 module cylindrical_rn_mod
-  use udf_type_mod
   use parameters_constant_mod
   use print_msg_mod
   use transpose_extended_mod
+  use udf_type_mod
   implicit none
+
+  integer, parameter, public :: RN_AXIS_NONE   = 0
+  integer, parameter, public :: RN_AXIS_QYR    = 1
+  integer, parameter, public :: RN_AXIS_QYR2   = 2
+  integer, parameter, public :: RN_AXIS_DQYDYR = 3
 
   public :: axis_estimating_radial_xpx
   !public :: estimate_azimuthal_xpx_on_axis
@@ -1321,16 +1326,16 @@ contains
 
     real(WP), dimension(dtmp%ysz(1), dtmp%ysz(2), dtmp%ysz(3)) :: var_ypencil, var_ypencil1
     real(WP), dimension(dtmp%zsz(1), dtmp%zsz(2), dtmp%zsz(3)) :: var_zpencil, var_zpencil1
-    !real(WP), dimension(dtmp%zsz(1)) :: uz, uy
+    real(WP), dimension(dtmp%zsz(1)) :: uz, uy
     integer :: k, i
     real(WP) :: theta, sign
 
     ! only for axis value
     if (dm%icase /= ICASE_PIPE .or. dm%icoordinate /= ICYLINDRICAL) return
     !
-    if(idir == IDIM(3)) then ! for qz
+    if(idir == IDIM(3)) then ! for qz_xpx
       call transpose_to_y_pencil(var, var_ypencil, dtmp, pencil)
-      var_ypencil(:, 1, :) = ZERO ! zero qz at axis
+      var_ypencil(:, 1, :) = ZERO ! zero qz_xpc at axis
       call transpose_from_y_pencil(var_ypencil, var, dtmp, pencil)
     else if(idir == IDIM(1)) then ! for ux, or scalars
       call transpose_to_z_pencil(var, var_zpencil, dtmp, pencil)
@@ -1358,49 +1363,48 @@ contains
       end do
       ! Transpose back to y-pencil and get the multiple valued ur at axis
       call transpose_z_to_y(var_zpencil1, var_ypencil1, dtmp)
+      ! First estimate the axis value from the first off-axis ring, then
+      ! reconstruct the regular axis-limit value by projecting that ring
+      ! onto Cartesian components and averaging azimuthally.
       var_ypencil(:, 1, :) = (var_ypencil1(:, 2, :) + var_ypencil(:, 2, :)) * HALF
-      ! Transpose to z-pencil for decomposition
-      !call transpose_y_to_z(var_ypencil, var_zpencil, dtmp)
-      ! below is eq(83) & (76) of https://doi.org/10.1016/j.jcp.2003.12.015 (Morinishi2004JCP)
-      ! coorindates like: https://en.m.wikipedia.org/wiki/File:3D_coordinate_system.svg
-      ! if(dtmp%zst(2) == 1) then ! for axis jj == 1 only
-      !   if(idir == IDIM(2)) then ! for qy/r
-      !     do i = 1, dtmp%zsz(1)
-      !       uy(i) = ZERO
-      !       uz(i) = ZERO
-      !       do k = 1, dtmp%zsz(3)
-      !         theta = dm%h(3) * real((k-1), WP)
-      !         uz(i) = uz(i) + var_zpencil1(i, 1, k) * cos_wp(theta)
-      !         uy(i) = uy(i) + var_zpencil1(i, 1, k) * sin_wp(theta)
-      !       end do
-      !       uy(i) = uy(i) * TWO / dtmp%zsz(3)
-      !       uz(i) = uz(i) * TWO / dtmp%zsz(3)
-      !       do k = 1, dtmp%zsz(3)
-      !         theta = dm%h(3) * real((k-1), WP)
-      !         var_zpencil1(i, 1, k) = uz(i) * cos_wp(theta) + uy(i) * sin_wp(theta)
-      !       end do
-      !     end do
-      !   end if
-
-      !   if(idir == IDIM(0)) then ! for qz/r only
-      !     do i = 1, dtmp%zsz(1)
-      !       uy(i) = ZERO
-      !       uz(i) = ZERO
-      !       do k = 1, dtmp%zsz(3)
-      !         theta = dm%h(3) * real((k-1), WP)
-      !         uz(i) = uz(i) - var_zpencil1(i, 1, k) * sin_wp(theta)
-      !         uy(i) = uy(i) + var_zpencil1(i, 1, k) * cos_wp(theta)
-      !       end do
-      !       uy(i) = uy(i) * TWO / dtmp%zsz(3)
-      !       uz(i) = uz(i) * TWO / dtmp%zsz(3)
-
-      !       do k = 1, dtmp%zsz(3)
-      !         theta = dm%h(3) * real((k-1), WP)
-      !         var_zpencil1(i, 1, k) = - uz(i) * sin_wp(theta) + uy(i) * cos_wp(theta)
-      !       end do
-      !     end do
-      !   endif
-      ! end if
+      call transpose_y_to_z(var_ypencil, var_zpencil1, dtmp)
+      if(dtmp%zst(2) == 1) then
+        if(idir == IDIM(2)) then
+          do i = 1, dtmp%zsz(1)
+            uy(i) = ZERO
+            uz(i) = ZERO
+            do k = 1, dtmp%zsz(3)
+              theta = dm%h(3) * real((k - 1), WP)
+              uz(i) = uz(i) + var_zpencil1(i, 1, k) * cos_wp(theta)
+              uy(i) = uy(i) + var_zpencil1(i, 1, k) * sin_wp(theta)
+            end do
+            uy(i) = uy(i) * TWO / real(dtmp%zsz(3), WP)
+            uz(i) = uz(i) * TWO / real(dtmp%zsz(3), WP)
+            do k = 1, dtmp%zsz(3)
+              theta = dm%h(3) * real((k - 1), WP)
+              var_zpencil1(i, 1, k) = uz(i) * cos_wp(theta) + uy(i) * sin_wp(theta)
+            end do
+          end do
+        else if(idir == IDIM(0)) then
+          do i = 1, dtmp%zsz(1)
+            uy(i) = ZERO
+            uz(i) = ZERO
+            do k = 1, dtmp%zsz(3)
+              theta = dm%h(3) * real((k - 1), WP)
+              uz(i) = uz(i) - var_zpencil1(i, 1, k) * sin_wp(theta)
+              uy(i) = uy(i) + var_zpencil1(i, 1, k) * cos_wp(theta)
+            end do
+            uy(i) = uy(i) * TWO / real(dtmp%zsz(3), WP)
+            uz(i) = uz(i) * TWO / real(dtmp%zsz(3), WP)
+            do k = 1, dtmp%zsz(3)
+              theta = dm%h(3) * real((k - 1), WP)
+              var_zpencil1(i, 1, k) = - uz(i) * sin_wp(theta) + uy(i) * cos_wp(theta)
+            end do
+          end do
+        end if
+      end if
+      call transpose_z_to_y(var_zpencil1, var_ypencil1, dtmp)
+      var_ypencil(:, 1, :) = var_ypencil1(:, 1, :)
       ! Transpose back to the original pencil
       call transpose_from_y_pencil(var_ypencil, var, dtmp, pencil)
     else 
@@ -1422,16 +1426,13 @@ contains
 
     integer :: i, j, k, jj, nx, ny, nz, nyst
     real(WP) :: rjn
-    !logical :: is_axis
 
     ! Initialize dimensions based on pencil
     call get_dimensions(dtmp, pencil, nx, ny, nz, nyst)
-    !is_axis = .false.
     do j = 1, ny
       jj = nyst + j - 1
       rjn = r(jj)**n
       if (r(jj) > (MAXP * HALF)) then
-        !is_axis = .true.
         if (jj /= 1) call Print_error_msg("Error: r(j) = 0 at j /= 1.")
       else
         do k = 1, nz
@@ -1441,6 +1442,8 @@ contains
         end do
       end if
     end do
+            
+    return 
   end subroutine multiple_cylindrical_rn
 
   !============================================================================
@@ -1467,7 +1470,7 @@ contains
       jj = nyst + j - 1
       rjn = r(jj)**n
       if (r(jj) > (MAXP * HALF)) then
-        if (jj /= 1) call Print_error_msg("Error: r(j) = 0 at j /= 1.")
+        call Print_error_msg("Multiple_cylindrical_rn_xx4 does not support rpi.")
       else
         do i = 1, nx
           var(i, j, 1) = var(i, j, 1) * rjn
@@ -1477,6 +1480,8 @@ contains
         end do
       end if
     end do
+
+    return
 
   end subroutine multiple_cylindrical_rn_xx4
 
@@ -1507,7 +1512,7 @@ contains
     do k = 1, nz
       do i = 1, nx
         if (r(1) > (MAXP * HALF)) then
-          ! Axis handling using estimate_azimuthal_xpx_on_axis or axis_estimating_radial_xpx
+          call Print_error_msg("multiple_cylindrical_rn_x4x does not support rpi.")
         else
           var(i, 1, k) = var(i, 1, k) * r1n
         end if
@@ -1572,8 +1577,8 @@ module find_max_min_ave_mod
 contains
 !==========================================================================================================
   subroutine is_valid_number_3D(var, varname)
-    use parameters_constant_mod
     use ieee_arithmetic
+    use parameters_constant_mod
     implicit none
 
     real(WP), intent(in) :: var(:, :, :)
@@ -1600,10 +1605,10 @@ contains
   end subroutine is_valid_number_3D
 !==========================================================================================================
   subroutine Find_maximum_absvar3d_loc(var, varmax_work, dtmp, str, nxst0)
-    use precision_mod
     use math_mod
     use mpi_mod
     use parameters_constant_mod
+    use precision_mod
     use typeconvert_mod
     use wtformat_mod
     implicit none
@@ -1681,10 +1686,10 @@ contains
 
   !==========================================================================================================
   subroutine Find_max_min_3d(var, opt_abs, opt_calc, opt_work, opt_name)
-    use precision_mod
     use math_mod
     use mpi_mod
     use parameters_constant_mod
+    use precision_mod
     implicit none
     ! arguments 
     real(WP), intent(in)  :: var(:, :, :)
@@ -1873,10 +1878,10 @@ contains
 !   end subroutine
 !==========================================================================================================
   subroutine Get_volumetric_average_3d(dm, dtmp, var, fo_work, itype, str)
-    use mpi_mod
-    use udf_type_mod
-    use parameters_constant_mod
     use decomp_2d
+    use mpi_mod
+    use parameters_constant_mod
+    use udf_type_mod
     use wtformat_mod
     
     implicit none
@@ -1949,10 +1954,10 @@ contains
   end subroutine 
 !==========================================================================================================
   subroutine Get_area_average_2d_for_fbcx(dm, dtmp, var, fo_work, itype, str)
-    use mpi_mod
-    use udf_type_mod
-    use parameters_constant_mod
     use decomp_2d
+    use mpi_mod
+    use parameters_constant_mod
+    use udf_type_mod
     use wtformat_mod
     
     implicit none
@@ -2023,10 +2028,10 @@ contains
 !==========================================================================================================
 !==========================================================================================================
   subroutine Get_area_average_2d_for_fbcz(dm, dtmp, var, fo_work, itype, str)
-    use mpi_mod
-    use udf_type_mod
-    use parameters_constant_mod
     use decomp_2d
+    use mpi_mod
+    use parameters_constant_mod
+    use udf_type_mod
     use wtformat_mod
     
     implicit none
@@ -2091,10 +2096,10 @@ contains
   end subroutine
 !==========================================================================================================
   subroutine Get_area_average_2d_for_fbcy(dm, dtmp, var, fo_work, itype, str, is_rf)
-    use mpi_mod
-    use udf_type_mod
-    use parameters_constant_mod
     use decomp_2d
+    use mpi_mod
+    use parameters_constant_mod
+    use udf_type_mod
     use wtformat_mod
     
     implicit none

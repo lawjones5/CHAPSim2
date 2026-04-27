@@ -92,8 +92,9 @@ contains
     topo_dims = xdmf_dims_kji_string(nnode)
     npts = nnode(1)*nnode(2)*nnode(3)
 
-    ! Your XYZ bin format: [int32 nx,ny,nz][ (x,y,z) as real*8 repeated ]
-    ! Seek = 3 int32 header = 12 bytes typically
+    ! Cylindrical XYZ bin format: [int32 nx,ny,nz][ (x,y,z) as real*8 repeated ]
+    ! Use little-endian for ParaView/XDMF binary compatibility.
+    ! Seek = 3 int32 header = 12 bytes typically.
     seek = xdmf_seek_bytes_int32(3)
     write(geom_dims,'(I0,1X,I0)') npts, 3
 
@@ -108,7 +109,7 @@ contains
     write(unit,'(A)') '                  NumberType="Float"'
     write(unit,'(A)') '                  Precision="8"'
     write(unit,'(A)') '                  Format="Binary"'
-    write(unit,'(A)') '                  Endian="Big"'
+    write(unit,'(A)') '                  Endian="Little"'
     write(unit,'(A)') '                  Seek="'//trim(seek)//'">'
     write(unit,'(A)') '          ../'//trim(grid_file)
     write(unit,'(A)') '        </DataItem>'
@@ -141,11 +142,10 @@ end module visualisation_xdmf_io_mod
 !========================================================================================================
 !========================================================================================================
 module visualisation_mesh_mod
+  use io_tools_mod
   use iso_fortran_env, only: int32
-  use parameters_constant_mod, only: WP, NDIM
   use parameters_constant_mod
   use visualisation_xdmf_io_mod
-  use io_tools_mod
   implicit none
   private
   !
@@ -179,8 +179,8 @@ module visualisation_mesh_mod
 contains
   !========================================================================================================
   subroutine write_visu_ini(dm)
-    use udf_type_mod
     use parameters_constant_mod, only: ICARTESIAN, ICYLINDRICAL
+    use udf_type_mod
     !use decomp_2d, only: xszV, yszV, zszV
     implicit none
     type(t_domain), intent(in) :: dm
@@ -275,8 +275,8 @@ contains
   end subroutine compute_slice_indices
   !========================================================================================================
   subroutine build_cartesian_coords(dm, x, y, z)
-    use udf_type_mod
     use parameters_constant_mod, only: MAXP
+    use udf_type_mod
     implicit none
     type(t_domain), intent(in) :: dm
     real(WP), intent(out) :: x(:), y(:), z(:)
@@ -300,9 +300,9 @@ contains
   end subroutine build_cartesian_coords
   !========================================================================================================
   subroutine build_cylindrical_to_cart(dm, x, y, z)
-    use udf_type_mod
-    use parameters_constant_mod, only: MAXP
     use math_mod
+    use parameters_constant_mod, only: MAXP
+    use udf_type_mod
     implicit none
     type(t_domain), intent(in) :: dm
     real(WP), intent(out) :: x(:,:,:), y(:,:,:), z(:,:,:)
@@ -368,8 +368,8 @@ contains
   end subroutine write_mesh_cartesian
   !========================================================================================================
   subroutine write_cartesian_slice_one(dm, nnode3, dir, n, x, y, z)
-    use udf_type_mod
     use typeconvert_mod, only: int2str
+    use udf_type_mod
     implicit none
     type(t_domain), intent(in) :: dm
     integer, intent(in) :: nnode3(NDIM), dir, n
@@ -406,8 +406,8 @@ contains
   end subroutine write_cartesian_slice_one
   !========================================================================================================
   subroutine write_mesh_cylindrical(dm, nnode, x, y, z)
-    use udf_type_mod   
     use typeconvert_mod, only: int2str
+    use udf_type_mod   
     implicit none
     type(t_domain), intent(in) :: dm
     integer, intent(in) :: nnode(NDIM)
@@ -493,7 +493,7 @@ contains
     hdr = int(nnode, int32)
 
     open(newunit=u, file=trim(filename), access='stream', form='unformatted', &
-         status='replace', action='write', iostat=ios, convert='BIG_ENDIAN')
+         status='replace', action='write', iostat=ios, convert='LITTLE_ENDIAN')
     if (ios /= 0) error stop 'write_bin_cyl_xyz: cannot open file'
 
     write(u) hdr(1), hdr(2), hdr(3)
@@ -554,10 +554,10 @@ end module visualisation_mesh_mod
 !       with grid + attributes in that file. It’s consistent and easy.)
 !==========================================================================================================
 module visualisation_field_mod
-  use parameters_constant_mod, only: WP, NDIM
-  use visualisation_xdmf_io_mod
-  use visualisation_mesh_mod
   use io_tools_mod
+  use parameters_constant_mod, only: WP, NDIM
+  use visualisation_mesh_mod
+  use visualisation_xdmf_io_mod
   implicit none
   private
 
@@ -671,8 +671,8 @@ contains
   end subroutine write_visu_mhd
   !==========================================================================================================
   subroutine write_visu_any3darray(var, varname, visuname, dtmp, dm, iter)
-    use udf_type_mod
     use decomp_operation_mod
+    use udf_type_mod
     implicit none
     real(WP), intent(in)          :: var(:,:,:)
     character(*), intent(in)      :: varname
@@ -858,9 +858,9 @@ contains
   end subroutine write_visu_field_bin_and_xdmf
   !==========================================================================================================
   subroutine stagger_to_ccc(dm, fin, fout, direction, opt_ibc)
-    use udf_type_mod
-    use operations
     use decomp_2d
+    use operations
+    use udf_type_mod
     implicit none
     type(t_domain), intent(in) :: dm
     real(WP), intent(in)  :: fin(:,:,:)
@@ -909,10 +909,10 @@ contains
   end subroutine stagger_to_ccc
   !==========================================================================================================
   subroutine write_visu_3d_binary_and_xdmf(dm, accc, field_name, visuname, iter)
-    use udf_type_mod
     use decomp_2d
     use decomp_2d_io
     use typeconvert_mod, only: int2str
+    use udf_type_mod
     implicit none
     type(t_domain), intent(in) :: dm
     real(WP), intent(in) :: accc(:,:,:)
@@ -940,10 +940,10 @@ contains
   end subroutine write_visu_3d_binary_and_xdmf
   !==========================================================================================================
   subroutine write_visu_plane_binary_and_xdmf(dm, accc, field_name, visuname, dir, n, iter, io_mode)
-    use udf_type_mod
     use decomp_2d
     use decomp_2d_io
     use typeconvert_mod, only: int2str
+    use udf_type_mod
     implicit none
     type(t_domain), intent(in) :: dm
     real(WP), intent(in) :: accc(:,:,:)
@@ -1007,9 +1007,9 @@ contains
   ! end subroutine write_coarsened_3d
   !==========================================================================================================
   subroutine write_plane_bin(dm, accc_in, dir, npl, bin_file, io_mode)
-    use udf_type_mod
     use decomp_2d_io
     use transpose_extended_mod
+    use udf_type_mod
     implicit none
     type(t_domain), intent(in) :: dm
     real(WP), intent(in) :: accc_in(:,:,:)
@@ -1073,9 +1073,9 @@ contains
   end subroutine write_plane_bin
   !==========================================================================================================
   subroutine write_slice_field_xdmf(dm, visuname, field_name, bin_file, dir, npl, iter)
-    use udf_type_mod
     use parameters_constant_mod
     use typeconvert_mod, only: int2str
+    use udf_type_mod
     implicit none
     type(t_domain), intent(in) :: dm
     character(*), intent(in) :: visuname, field_name, bin_file

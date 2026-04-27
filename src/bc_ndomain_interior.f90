@@ -1,8 +1,8 @@
 module bc_ndomain_interior_mod ! not used anymore
-  use parameters_constant_mod
-  use udf_type_mod
   use decomp_2d
+  use parameters_constant_mod
   use print_msg_mod
+  use udf_type_mod
   private
   integer, parameter :: IFBC(1:2) = (/1, 2/)
 

@@ -3,11 +3,11 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !==========================================================================================================
 module poisson_interface_mod
-  use parameters_constant_mod
-  use fft2decomp_interface_mod
   use decomp_2d_poisson
-  use transpose_extended_mod
+  use fft2decomp_interface_mod
   use fishpack_fft
+  use parameters_constant_mod
+  use transpose_extended_mod
   implicit none
 
   public :: initialise_fft
@@ -39,8 +39,8 @@ contains
 !==========================================================================================================
 !==========================================================================================================
   subroutine solve_fft_poisson(rhs_xpencil, dm)
-    use udf_type_mod
     use decomp_extended_mod
+    use udf_type_mod
     implicit none 
     type(t_domain), intent(in) :: dm
     integer :: i, j, k

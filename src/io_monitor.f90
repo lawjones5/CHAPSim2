@@ -113,11 +113,11 @@ module io_monitor_mod
   
 contains
   subroutine write_monitor_ini(dm)
-    use typeconvert_mod
-    use wtformat_mod
-    use udf_type_mod
     use io_tools_mod
     use parameters_constant_mod
+    use typeconvert_mod
+    use udf_type_mod
+    use wtformat_mod
     implicit none 
     type(t_domain),  intent(inout) :: dm
 
@@ -275,20 +275,19 @@ contains
   end subroutine
 !==========================================================================================================
   subroutine write_monitor_bulk(fl, dm, tm)
-    use typeconvert_mod
-    use parameters_constant_mod
-    use wtformat_mod
-    use udf_type_mod
+    use bc_dirichlet_mod
+    use cylindrical_rn_mod
+    use find_max_min_ave_mod
     use io_files_mod
     use io_tools_mod
-    use solver_tools_mod
     use operations
-    use find_max_min_ave_mod
-    use cylindrical_rn_mod
+    use parameters_constant_mod
     use regression_test_mod
-    use bc_dirichlet_mod
     use solver_tools_mod
     use thermo_info_mod
+    use typeconvert_mod
+    use udf_type_mod
+    use wtformat_mod
     implicit none 
 
     type(t_domain),  intent(in) :: dm
@@ -441,12 +440,12 @@ contains
 
 !==========================================================================================================
   subroutine write_monitor_probe(fl, dm, tm)
-    use typeconvert_mod
-    use parameters_constant_mod
-    use wtformat_mod
-    use udf_type_mod
     use io_files_mod
     use io_tools_mod
+    use parameters_constant_mod
+    use typeconvert_mod
+    use udf_type_mod
+    use wtformat_mod
     implicit none 
 
     type(t_domain),  intent(in) :: dm

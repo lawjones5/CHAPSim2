@@ -1,10 +1,10 @@
 module io_restart_mod
-  use print_msg_mod
-  use parameters_constant_mod
   use decomp_2d_io
-  use udf_type_mod
   use io_files_mod
   use io_tools_mod
+  use parameters_constant_mod
+  use print_msg_mod
+  use udf_type_mod
   implicit none 
 
   character(len=10), parameter :: io_name = "restart-io"
@@ -96,11 +96,11 @@ contains
 !==========================================================================================================
 !==========================================================================================================
   subroutine restore_flow_variables_from_restart(fl, dm)
-    use mpi_mod
     use boundary_conditions_mod
+    use find_max_min_ave_mod
+    use mpi_mod
     use solver_tools_mod
     use wtformat_mod
-    use find_max_min_ave_mod
     implicit none
     type(t_domain), intent(in) :: dm
     type(t_flow),   intent(inout) :: fl
@@ -129,8 +129,8 @@ contains
 !==========================================================================================================
 !==========================================================================================================
   subroutine read_instantaneous_thermo(tm, dm)
-    use thermo_info_mod
     use io_tools_mod
+    use thermo_info_mod
     implicit none
     type(t_domain), intent(inout) :: dm
     type(t_thermo), intent(inout) :: tm
@@ -153,11 +153,11 @@ contains
   end subroutine
 !==========================================================================================================
   subroutine restore_thermo_variables_from_restart(fl, tm, dm)
-    use udf_type_mod
-    use thermo_info_mod
+    use convert_primary_conservative_mod
     use eq_energy_mod
     use solver_tools_mod
-    use convert_primary_conservative_mod
+    use thermo_info_mod
+    use udf_type_mod
     type(t_domain), intent(inout) :: dm
     type(t_flow),   intent(inout) :: fl
     type(t_thermo), intent(inout) :: tm
@@ -438,8 +438,8 @@ contains
 !   end subroutine
 !==========================================================================================================
   subroutine read_instantaneous_xinlet(fl, dm, opt_iter)
-    use typeconvert_mod
     use io_tools_mod
+    use typeconvert_mod
     implicit none 
     type(t_flow), intent(inout) :: fl
     type(t_domain), intent(inout) :: dm
@@ -497,8 +497,8 @@ end module
 !==========================================================================================================
 !==========================================================================================================
 module io_field_interpolation_mod
-  use udf_type_mod
   USE precision_mod
+  use udf_type_mod
   implicit none
 
   type(t_domain) :: domain_tgt
@@ -729,9 +729,9 @@ module io_field_interpolation_mod
   end subroutine setup_extension_mapping
 !==========================================================================================================
   subroutine build_up_interp_target_field_flow(fl_src, dm_src, fl_tgt, dm_tgt)
-    use udf_type_mod
     use parameters_constant_mod
     use print_msg_mod
+    use udf_type_mod
     implicit none
     !
     type(t_domain), intent(in)    :: dm_src
@@ -795,9 +795,9 @@ module io_field_interpolation_mod
   end subroutine build_up_interp_target_field_flow
 !==========================================================================================================
   subroutine build_up_interp_target_field_thermo(tm_src, dm_src, tm_tgt, dm_tgt)
-    use udf_type_mod
     use parameters_constant_mod
     use print_msg_mod
+    use udf_type_mod
     implicit none
     !
     type(t_domain), intent(in)    :: dm_src
@@ -850,8 +850,8 @@ module io_field_interpolation_mod
                                     xloc_tgt, yloc_tgt, zloc_tgt,                           &
                                     extend_mode_x, extend_length_x,                         &
                                     extend_mode_z, extend_length_z)
-    use udf_type_mod
     use parameters_constant_mod
+    use udf_type_mod
     implicit none
     !
     type(t_domain)   , intent(in)    :: dm_src
@@ -896,8 +896,8 @@ module io_field_interpolation_mod
   end subroutine interp_field_3d_generic
 !==========================================================================================================
   pure function get_coord_from_loc(dir, idx, dm, loc_type) result(coord_val)
-    use udf_type_mod
     use parameters_constant_mod
+    use udf_type_mod
     implicit none
     !
     integer       , intent(in) :: dir
@@ -977,14 +977,14 @@ module io_field_interpolation_mod
   end function map_coord_to_src_bounds
 !==========================================================================================================
   subroutine output_interp_target_field(dm_src, fl_src, tm_src)
-    use parameters_constant_mod
-    use udf_type_mod
-    use io_files_mod
-    use print_msg_mod
-    use input_general_mod
-    use geometry_mod
     use domain_decomposition_mod
+    use geometry_mod
+    use input_general_mod
+    use io_files_mod
     use io_restart_mod
+    use parameters_constant_mod
+    use print_msg_mod
+    use udf_type_mod
    !use visualisation_field_mod
     implicit none 
     type(t_domain), intent(in) :: dm_src

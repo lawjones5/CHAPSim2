@@ -9,9 +9,9 @@
 ! ============================================================================
 module fft2decomp_interface_mod
   use decomp_2d
+  use math_mod
   use mpi_mod
   use parameters_constant_mod
-  use math_mod
   use print_msg_mod
   implicit none
   ! ============================================================================
@@ -124,8 +124,8 @@ contains
   end subroutine initialize_grid
   ! ==========================================================================
   subroutine initialize_fd_coefficients(dm)
-    use udf_type_mod
     use operations
+    use udf_type_mod
     implicit none
     type(t_domain), intent(in) :: dm
     ! X-direction coefficients

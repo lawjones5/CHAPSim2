@@ -1,6 +1,6 @@
 module continuity_eq_mod
-  use operations
   use decomp_2d
+  use operations
 
   public :: Get_divergence_vector
   public :: Get_divergence_flow
@@ -19,10 +19,10 @@ contains
 !> \param[in]     d            domain
 !_______________________________________________________________________________
   subroutine Get_divergence_flow(fl, div, dm)
-    use parameters_constant_mod
-    use udf_type_mod
-    use solver_tools_mod
     use cylindrical_rn_mod
+    use parameters_constant_mod
+    use solver_tools_mod
+    use udf_type_mod
     implicit none
 
     type(t_domain), intent(in) :: dm
@@ -105,9 +105,9 @@ contains
 !> \param[in]     d            domain
 !_______________________________________________________________________________
   subroutine Get_divergence_vector(ux, uy, uz, div, dm)
+    use cylindrical_rn_mod
     use parameters_constant_mod
     use udf_type_mod
-    use cylindrical_rn_mod
     implicit none
 
     type(t_domain), intent (in) :: dm
@@ -181,13 +181,12 @@ contains
 !> \param[in]     d            domain
 !_______________________________________________________________________________
   subroutine Get_divergence_vel_x2z(ux, uy, uz, div_zpencil_ggg, dm)
-    use parameters_constant_mod
-    use udf_type_mod
-    use transpose_extended_mod
-    use cylindrical_rn_mod
-    use poisson_interface_mod
     use cylindrical_rn_mod
     use decomp_extended_mod
+    use parameters_constant_mod
+    use poisson_interface_mod
+    use transpose_extended_mod
+    use udf_type_mod
     implicit none
 
     type(t_domain), intent (in) :: dm
@@ -272,13 +271,13 @@ contains
 !> \param[in]     d            domain
 !_______________________________________________________________________________
   subroutine Check_element_mass_conservation(fl, dm, opt_isub, opt_str)
-    use precision_mod
-    use udf_type_mod
     use input_general_mod    
-    use parameters_constant_mod
     use math_mod                
     use mpi_mod
+    use parameters_constant_mod
+    use precision_mod
     use solver_tools_mod
+    use udf_type_mod
     use wtformat_mod
     !use visualisation_field_mod
     use find_max_min_ave_mod

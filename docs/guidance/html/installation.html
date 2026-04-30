@@ -165,7 +165,7 @@ cd CHAPSim2</code></pre>
 <pre><code class="language-bash">cd tests/&lt;case_name&gt;
 mpirun -np 4 $PATH/CHAPSim2/bin/chapsim</code></pre>
 <p>For quick smoke tests, the solver can shorten the final iteration through the environment variable <code>CHAPSIM_NITER</code>:</p>
-<pre><code class="language-bash">CHAPSIM_NITER=20 mpirun -np 4 .$PATH/CHAPSim2/bin/chapsim</code></pre>
+<pre><code class="language-bash">CHAPSIM_NITER=20 mpirun -np 4 $PATH/CHAPSim2/bin/chapsim</code></pre>
 <h2>What to Check</h2>
 <p>During a first run, monitor:</p>
 <ul>

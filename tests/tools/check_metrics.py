@@ -83,7 +83,7 @@ def check_metric(key, new_val, ref_val, tol_entry):
     if not applicable_checks:
         return False
 
-    if len(failures) == len(applicable_checks):
+    if failures and len(failures) == len(applicable_checks):
         print(f"[FAIL ] {key}: " + "; ".join(failures))
         return True
 

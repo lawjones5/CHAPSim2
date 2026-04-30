@@ -1,3 +1,8 @@
+!> Restart and instantaneous-field I/O.
+!>
+!> This module writes and reads solver state fields used for checkpoint/restart
+!> and for inlet/outlet database exchange. It covers flow, thermal, and
+!> streamwise plane database files.
 module io_restart_mod
   use decomp_2d_io
   use io_files_mod
@@ -5,7 +10,7 @@ module io_restart_mod
   use parameters_constant_mod
   use print_msg_mod
   use udf_type_mod
-  implicit none 
+  implicit none
 
   character(len=10), parameter :: io_name = "restart-io"
 
@@ -25,10 +30,13 @@ module io_restart_mod
   !private :: write_instantaneous_plane !not used
   !private :: read_instantaneous_plane !not used
 
-contains 
+contains
 
 !==========================================================================================================
 !==========================================================================================================
+  !> Write instantaneous flow variables for restart.
+  !> - fl (in): Flow state to write.
+  !> - dm (in): Domain descriptor and I/O mode.
   subroutine write_instantaneous_flow(fl, dm)
     use io_tools_mod
     implicit none
@@ -44,12 +52,16 @@ contains
     call write_one_3d_array(fl%qy, 'qy', dm%idom, fl%iteration, dm%dcpc, dm%io_mode)
     call write_one_3d_array(fl%qz, 'qz', dm%idom, fl%iteration, dm%dccp, dm%io_mode)
     call write_one_3d_array(fl%pres, 'pr', dm%idom, fl%iteration, dm%dccc, dm%io_mode)
+    call write_restart_metadata(dm%idom, 'flow_meta', fl%iteration, fl%time, dm%dt)
 
     if(nrank == 0) call Print_debug_end_msg()
     return
   end subroutine
 !==========================================================================================================
 !==========================================================================================================
+  !> Write instantaneous thermal variables for restart.
+  !> - tm (in): Thermal state to write.
+  !> - dm (in): Domain descriptor and I/O mode.
   subroutine write_instantaneous_thermo(tm, dm)
     use thermo_info_mod
     implicit none
@@ -58,18 +70,22 @@ contains
 
     character(64):: data_flname_path
     character(64):: keyword
-    
+
 
     if(nrank == 0) call Print_debug_inline_msg("writing out instantaneous 3d thermo data ...")
 
     call write_one_3d_array(tm%rhoh,  'rhoh', dm%idom, tm%iteration, dm%dccc, dm%io_mode)
     call write_one_3d_array(tm%tTemp, 'temp', dm%idom, tm%iteration, dm%dccc, dm%io_mode)
+    call write_restart_metadata(dm%idom, 'thermo_meta', tm%iteration, tm%time, dm%dt)
 
     if(nrank == 0) call Print_debug_end_msg()
     return
   end subroutine
 !==========================================================================================================
 !==========================================================================================================
+  !> Read instantaneous flow variables from restart files.
+  !> - fl (inout): Flow state receiving restart fields.
+  !> - dm (inout): Domain descriptor.
   subroutine read_instantaneous_flow(fl, dm)
     use io_tools_mod
     implicit none
@@ -78,23 +94,36 @@ contains
 
     character(64):: data_flname
     character(64):: keyword
+    real(WP) :: restart_dt
+    logical  :: has_metadata
 
 
     if(nrank == 0) call Print_debug_inline_msg("read instantaneous flow data ...")
     fl%iteration = fl%iterfrom
-    fl%time = real(fl%iterfrom, WP) * dm%dt 
+    call read_restart_metadata(dm%idom, 'flow_meta', fl%iterfrom, fl%time, restart_dt, has_metadata)
+    if(.not. has_metadata) then
+      fl%time = real(fl%iterfrom, WP) * dm%dt
+      if(nrank == 0) call Print_warning_msg("Flow restart metadata was not found. " // &
+        "The restart time is estimated as iterfrom * current dt.")
+    else if(abs(restart_dt - dm%dt) > max(MINP, MINP * abs(restart_dt))) then
+      if(nrank == 0) call Print_warning_msg("Current input dt differs from the flow checkpoint dt. " // &
+        "The stored restart time is preserved, and the input dt is used for the next steps.")
+    end if
 
     call read_one_3d_array(fl%qx,   'qx', dm%idom, fl%iterfrom, dm%dpcc)
     call read_one_3d_array(fl%qy,   'qy', dm%idom, fl%iterfrom, dm%dcpc)
     call read_one_3d_array(fl%qz,   'qz', dm%idom, fl%iterfrom, dm%dccp)
     call read_one_3d_array(fl%pres, 'pr', dm%idom, fl%iterfrom, dm%dccc)
-    
+
     if(nrank == 0) call Print_debug_end_msg()
     return
   end subroutine
 
 !==========================================================================================================
 !==========================================================================================================
+  !> Reinitialise derived flow variables after restart data is loaded.
+  !> - fl (inout): Flow state to refresh.
+  !> - dm (in): Domain descriptor.
   subroutine restore_flow_variables_from_restart(fl, dm)
     use boundary_conditions_mod
     use find_max_min_ave_mod
@@ -105,7 +134,7 @@ contains
     type(t_domain), intent(in) :: dm
     type(t_flow),   intent(inout) :: fl
     real(WP) :: ubulk
-    
+
 
     call Get_volumetric_average_3d(dm, dm%dpcc, fl%qx, ubulk, SPACE_AVERAGE, "ux")
     if(nrank == 0) then
@@ -128,6 +157,9 @@ contains
   end subroutine
 !==========================================================================================================
 !==========================================================================================================
+  !> Read instantaneous thermal variables from restart files.
+  !> - tm (inout): Thermal state receiving restart fields.
+  !> - dm (inout): Domain descriptor.
   subroutine read_instantaneous_thermo(tm, dm)
     use io_tools_mod
     use thermo_info_mod
@@ -137,12 +169,22 @@ contains
 
     character(64):: data_flname
     character(64):: keyword
+    real(WP) :: restart_dt
+    logical  :: has_metadata
 
     if (.not. dm%is_thermo) return
     if(nrank == 0) call Print_debug_inline_msg("read instantaneous thermo data ...")
 
     tm%iteration = tm%iterfrom
-    tm%time = real(tm%iterfrom, WP) * dm%dt 
+    call read_restart_metadata(dm%idom, 'thermo_meta', tm%iterfrom, tm%time, restart_dt, has_metadata)
+    if(.not. has_metadata) then
+      tm%time = real(tm%iterfrom, WP) * dm%dt
+      if(nrank == 0) call Print_warning_msg("Thermo restart metadata was not found. " // &
+        "The restart time is estimated as iterfrom * current dt.")
+    else if(abs(restart_dt - dm%dt) > max(MINP, MINP * abs(restart_dt))) then
+      if(nrank == 0) call Print_warning_msg("Current input dt differs from the thermo checkpoint dt. " // &
+        "The stored restart time is preserved, and the input dt is used for the next steps.")
+    end if
 
     call read_one_3d_array(tm%rhoh,  'rhoh', dm%idom, tm%iteration, dm%dccc)
     call read_one_3d_array(tm%tTemp, 'temp', dm%idom, tm%iteration, dm%dccc)
@@ -151,7 +193,95 @@ contains
     if(nrank == 0) call Print_debug_end_msg()
     return
   end subroutine
+
 !==========================================================================================================
+!==========================================================================================================
+  !> Write scalar metadata needed to restart with the correct simulation time.
+  !> - idom (in): Domain index.
+  !> - keyword (in): Metadata file keyword.
+  !> - iter (in): Checkpoint iteration.
+  !> - time (in): Stored nondimensional solver time.
+  !> - dt (in): Time step used when the checkpoint was written.
+  subroutine write_restart_metadata(idom, keyword, iter, time, dt)
+    implicit none
+    integer,      intent(in) :: idom
+    integer,      intent(in) :: iter
+    character(*), intent(in) :: keyword
+    real(WP),     intent(in) :: time
+    real(WP),     intent(in) :: dt
+
+    character(128) :: meta_file
+    integer :: io_unit
+    integer :: ios
+
+    if(nrank /= 0) return
+
+    call generate_pathfile_name(meta_file, idom, trim(keyword), dir_data, 'dat', iter)
+    open(newunit=io_unit, file=trim(meta_file), status='replace', action='write', iostat=ios)
+    if(ios /= 0) then
+      call Print_warning_msg("Could not write restart metadata file: "//trim(meta_file))
+      return
+    end if
+
+    write(io_unit, '(A,1X,I0)')       'iteration', iter
+    write(io_unit, '(A,1X,ES24.16E3)') 'time',      time
+    write(io_unit, '(A,1X,ES24.16E3)') 'dt',        dt
+    close(io_unit)
+
+    return
+  end subroutine
+
+!==========================================================================================================
+!==========================================================================================================
+  !> Read scalar metadata written alongside a restart checkpoint.
+  !> - idom (in): Domain index.
+  !> - keyword (in): Metadata file keyword.
+  !> - iter (in): Expected checkpoint iteration.
+  !> - time (out): Stored nondimensional solver time.
+  !> - dt (out): Checkpoint time step.
+  !> - found (out): True when a matching metadata file was read.
+  subroutine read_restart_metadata(idom, keyword, iter, time, dt, found)
+    implicit none
+    integer,      intent(in)  :: idom
+    integer,      intent(in)  :: iter
+    character(*), intent(in)  :: keyword
+    real(WP),     intent(out) :: time
+    real(WP),     intent(out) :: dt
+    logical,      intent(out) :: found
+
+    character(128) :: meta_file
+    character(32)  :: label
+    integer :: io_unit
+    integer :: iter_file
+    integer :: ios
+    logical :: file_exists
+
+    time = ZERO
+    dt = ZERO
+    found = .false.
+
+    call generate_pathfile_name(meta_file, idom, trim(keyword), dir_data, 'dat', iter)
+    inquire(file=trim(meta_file), exist=file_exists)
+    if(.not. file_exists) return
+
+    open(newunit=io_unit, file=trim(meta_file), status='old', action='read', iostat=ios)
+    if(ios /= 0) return
+
+    read(io_unit, *, iostat=ios) label, iter_file
+    if(ios == 0) read(io_unit, *, iostat=ios) label, time
+    if(ios == 0) read(io_unit, *, iostat=ios) label, dt
+    close(io_unit)
+
+    found = (ios == 0 .and. iter_file == iter)
+    if(.not. found .and. nrank == 0) call Print_warning_msg("Restart metadata file is invalid: "//trim(meta_file))
+
+    return
+  end subroutine
+!==========================================================================================================
+  !> Reinitialise thermal-property and conservative variables after restart.
+  !> - fl (inout): Flow state receiving refreshed density/viscosity variables.
+  !> - tm (inout): Thermal state used to update properties.
+  !> - dm (inout): Domain descriptor.
   subroutine restore_thermo_variables_from_restart(fl, tm, dm)
     use convert_primary_conservative_mod
     use eq_energy_mod
@@ -175,7 +305,7 @@ contains
 
 !==========================================================================================================
   subroutine append_instantaneous_xoutlet(fl, dm, niter)
-    implicit none 
+    implicit none
     type(t_flow), intent(in) :: fl
     type(t_domain), intent(inout) :: dm
     integer, intent(out) :: niter
@@ -188,7 +318,7 @@ contains
     if(fl%iteration < dm%ndbstart) return
 
     ! if dm%ndbfre = 10, and start from 36 to 65
-    ! store : 
+    ! store :
     !     To store: 36, 37, 38,...,44, 45 at file 10*(iter=0)
     !     To store: 46, 47, 48,...,54, 55 at file 10*(iter=1)
     !     To store: 56, 57, 58,...,64, 65 at file 10*(iter=2)
@@ -250,7 +380,7 @@ contains
   end subroutine
 ! !==========================================================================================================
 !   subroutine write_instantaneous_plane(var, keyword, idom, iter, niter, dtmp)
-!     implicit none 
+!     implicit none
 !     real(WP), contiguous, intent(in) :: var( :, :, :)
 !     type(DECOMP_INFO), intent(in) :: dtmp
 !     character(*), intent(in) :: keyword
@@ -262,7 +392,7 @@ contains
 !     call generate_pathfile_name(data_flname_path, idom, trim(keyword), dir_data, 'bin', iter)
 
 !     if(nrank==0) write(*, *) 'Write outlet plane data to ['//trim(data_flname_path)//"]"
- 
+
 !     !call decomp_2d_open_io (io_in2outlet, trim(data_flname_path), decomp_2d_write_mode)
 !     !call decomp_2d_start_io(io_in2outlet, trim(data_flname_path))!
 
@@ -279,10 +409,10 @@ contains
 !==========================================================================================================
   subroutine write_instantaneous_xoutlet(fl, dm)
     use io_tools_mod
-    implicit none 
+    implicit none
     type(t_flow), intent(in) :: fl
     type(t_domain), intent(inout) :: dm
-    
+
     character(64):: data_flname_path
     integer :: idom, niter, iter, j
 
@@ -292,7 +422,7 @@ contains
     call append_instantaneous_xoutlet(fl, dm, niter)
 
     ! if dm%ndbfre = 10, and start from 36 to 65
-    ! store : 
+    ! store :
     !     To store: 36, 37, 38,...,44, 45 at file 10*(iter=0)
     !     To store: 46, 47, 48,...,54, 55 at file 10*(iter=1)
     !     To store: 56, 57, 58,...,64, 65 at file 10*(iter=2)
@@ -330,7 +460,7 @@ contains
   subroutine assign_instantaneous_xinlet(fl, dm)
     use convert_primary_conservative_mod
     use typeconvert_mod
-    implicit none 
+    implicit none
     type(t_flow), intent(inout) :: fl
     type(t_domain), intent(inout) :: dm
 
@@ -352,7 +482,7 @@ contains
         do k = 1, dtmp%xsz(3)
           dm%fbcx_qx(1, j, k) = dm%fbcx_qx_inl1(iter, j, k)
           dm%fbcx_qx(3, j, k) = dm%fbcx_qx_inl2(iter, j, k)
-          ! check, below 
+          ! check, below
           !fl%qx(1, j, k) = dm%fbcx_qx(1, j, k)
         end do
       end do
@@ -405,7 +535,7 @@ contains
 ! !==========================================================================================================
 !   subroutine read_instantaneous_plane(var, keyword, idom, iter, nfre, dtmp)
 !     use decomp_2d_io
-!     implicit none 
+!     implicit none
 !     real(WP), contiguous, intent(out) :: var( :, :, :)
 !     type(DECOMP_INFO), intent(in) :: dtmp
 !     character(*), intent(in) :: keyword
@@ -440,7 +570,7 @@ contains
   subroutine read_instantaneous_xinlet(fl, dm, opt_iter)
     use io_tools_mod
     use typeconvert_mod
-    implicit none 
+    implicit none
     type(t_flow), intent(inout) :: fl
     type(t_domain), intent(inout) :: dm
     integer, intent(in), optional :: opt_iter
@@ -452,12 +582,12 @@ contains
     if(.not. dm%is_read_xinlet) return
     ! ----------------------------------------------------------------------------
     ! if dm%ndbfre = 10, and start from 36 to 65
-    ! store : 
+    ! store :
     !     To store: 36, 37, 38,...,44, 45 at file 10*1 at block = 1
     !     To store: 46, 47, 48,...,54, 55 at file 10*2 at block = 2
     !     To store: 56, 57, 58,...,64, 65 at file 10*3 at block = 3
     !        niter: 1,  2,  3, ..., 9, 0
-    ! read: 
+    ! read:
     !     iter = 1, 2, 3, ...10, read file 10*1 at block = 1
     !     iter = 11, 12, ...,20, read file 10*2 at block = 2
     !     iter = 21, 22, ...,30, read file 10*3 at block = 3
@@ -493,9 +623,14 @@ contains
 
     return
   end subroutine
-end module 
+end module
 !==========================================================================================================
 !==========================================================================================================
+!> Field interpolation support for restarting on a different mesh.
+!>
+!> Reads source and target domain/mesh descriptors, builds the interpolated
+!> target flow and thermal fields, and writes the target-domain restart files
+!> used by the two-step mesh-restart workflow.
 module io_field_interpolation_mod
   USE precision_mod
   use udf_type_mod
@@ -520,13 +655,16 @@ module io_field_interpolation_mod
   private :: build_up_interp_target_field_flow
   public  :: output_interp_target_field
 
-  contains 
+  contains
 !==========================================================================================================
+  !> Read target-domain and target-mesh settings from `input_chapsim_tgt.ini`.
+  !> - dm (inout): Target domain descriptor.
+  !> - flinput (in): Target input-file path.
   subroutine Read_input_parameters_tgt(dm, flinput)
     use parameters_constant_mod
     use print_msg_mod
     implicit none
-    character(len = *), intent(in) :: flinput 
+    character(len = *), intent(in) :: flinput
     type(t_domain), intent(inout) :: dm
 
     integer, parameter :: IOMSG_LEN = 200
@@ -551,7 +689,7 @@ module io_field_interpolation_mod
     if(nrank == 0) &
     call Print_debug_start_msg("Reading General Parameters from "//flinput//" ...")
     ! reading input
-    do 
+    do
       ! reading headings/comments
       read(inputUnit, '(a)', iostat = ioerr) secname
       slen = len_trim(secname)
@@ -570,7 +708,7 @@ module io_field_interpolation_mod
         read(inputUnit, *, iostat = ioerr) varname, dm%lyt
         read(inputUnit, *, iostat = ioerr) varname, dm%lyb
         read(inputUnit, *, iostat = ioerr) varname, dm%lzz
-      ! [mesh] 
+      ! [mesh]
       else if ( secname(1:slen) == '[mesh]' ) then
         read(inputUnit, *, iostat = ioerr) varname, dm%nc(1)
         read(inputUnit, *, iostat = ioerr) varname, dm%nc(2)
@@ -589,7 +727,7 @@ module io_field_interpolation_mod
 
     close(inputUnit)
     return
-  end subroutine 
+  end subroutine
 !==========================================================================================================
   SUBROUTINE binary_search_loc2index(x_target, x_array, idx)
     IMPLICIT NONE
@@ -728,6 +866,11 @@ module io_field_interpolation_mod
     return
   end subroutine setup_extension_mapping
 !==========================================================================================================
+  !> Interpolate source flow fields onto the target mesh.
+  !> - fl_src (in): Source flow field.
+  !> - dm_src (in): Source domain descriptor.
+  !> - fl_tgt (inout): Target flow field.
+  !> - dm_tgt (in): Target domain descriptor.
   subroutine build_up_interp_target_field_flow(fl_src, dm_src, fl_tgt, dm_tgt)
     use parameters_constant_mod
     use print_msg_mod
@@ -794,6 +937,11 @@ module io_field_interpolation_mod
     return
   end subroutine build_up_interp_target_field_flow
 !==========================================================================================================
+  !> Interpolate source thermal fields onto the target mesh.
+  !> - tm_src (in): Source thermal field.
+  !> - dm_src (in): Source domain descriptor.
+  !> - tm_tgt (inout): Target thermal field.
+  !> - dm_tgt (in): Target domain descriptor.
   subroutine build_up_interp_target_field_thermo(tm_src, dm_src, tm_tgt, dm_tgt)
     use parameters_constant_mod
     use print_msg_mod
@@ -976,6 +1124,10 @@ module io_field_interpolation_mod
 
   end function map_coord_to_src_bounds
 !==========================================================================================================
+  !> Driver for writing interpolated target restart fields.
+  !> - dm_src (in): Source domain descriptor.
+  !> - fl_src (in): Source flow field.
+  !> - tm_src (in): Source thermal field.
   subroutine output_interp_target_field(dm_src, fl_src, tm_src)
     use domain_decomposition_mod
     use geometry_mod
@@ -986,7 +1138,7 @@ module io_field_interpolation_mod
     use print_msg_mod
     use udf_type_mod
    !use visualisation_field_mod
-    implicit none 
+    implicit none
     type(t_domain), intent(in) :: dm_src
     type(t_flow)  , intent(in) :: fl_src
     type(t_thermo), intent(in), optional :: tm_src
@@ -995,7 +1147,7 @@ module io_field_interpolation_mod
       call Print_warning_msg('No field interpolation is carried out.')
       return
     end if
-    
+
     if(nproc > 1) call Print_error_msg('Field interpolation and io are in serial mode only.')
     ! to do : add parallel io and interpolation if needed in the future
     ! geo/domain
@@ -1023,10 +1175,10 @@ module io_field_interpolation_mod
       call build_up_interp_target_field_thermo(tm_src, dm_src, thermo_tgt, domain_tgt)
       call write_instantaneous_thermo(thermo_tgt, domain_tgt)
       !call write_visu_thermo(thermo_tgt, flow_tgt, domain_tgt)
-    end if 
+    end if
 
     call Print_debug_mid_msg("Fields interpolation is completed successfully.")
 
     return
   end subroutine
-end module 
+end module

@@ -244,7 +244,19 @@ def get_flow_settings():
         irestartfrom = get_input("From which iteration to restart", 2000, int)
     else:
         if icase in WALL_FLOW_CASES:
-            initfl = Init.POISEUILLE.value
+            initfl = get_input(
+                "Flow initialization (1:Intrpl, 2:Random, 3:Inlet, 4:Given, 5:Poiseuille, 6:Function)",
+                Init.POISEUILLE.value,
+                int,
+                valid_choices=[
+                    Init.INTRPL.value,
+                    Init.RANDOM.value,
+                    Init.INLET.value,
+                    Init.GIVEN.value,
+                    Init.POISEUILLE.value,
+                    Init.FUNCTION.value,
+                ],
+            )
         elif icase == Case.TGV3D.value:
             initfl = Init.FUNCTION.value
         else:
@@ -253,10 +265,10 @@ def get_flow_settings():
                 5,
                 int,
             )
-            if initfl == Init.GIVEN.value:
-                velo1 = get_input("Initial velocity in x", 1.0, float)
-                velo2 = get_input("Initial velocity in y", 0.0, float)
-                velo3 = get_input("Initial velocity in z", 0.0, float)
+        if initfl == Init.GIVEN.value:
+            velo1 = get_input("Initial velocity in x", 1.0, float)
+            velo2 = get_input("Initial velocity in y", 0.0, float)
+            velo3 = get_input("Initial velocity in z", 0.0, float)
 
         if icase != Case.TGV3D.value:
             noiselevel = get_input(
@@ -413,7 +425,7 @@ def get_mesh_settings():
             )
         else:
             rstret1 = get_input(
-                "Stretching method (1:Laizet2009, 2:tanh, 3:power law)", 1, int
+                "Stretching method (1:Five-mode spectral, 2:tanh, 3:power law)", 1, int
             )
             rstret2 = get_input("Stretching factor (0.1-0.3)", 0.15, float)
     else:
@@ -461,7 +473,8 @@ def get_bc_settings():
         bc_dict["ifbcx_p"][:2] = [BC.NEUMANN.value, BC.NEUMANN.value]
         bc_dict["ifbcx_T"][:2] = [BC.NEUMANN.value, BC.NEUMANN.value]
 
-    # Inlet/periodic BC for X-direction
+    # Inlet/periodic BC for the streamwise direction.
+    # For duct, x/y are wall-normal directions and z is streamwise.
     if icase == Case.TGV3D.value:
         iinlet = 0
     else:
@@ -474,10 +487,15 @@ def get_bc_settings():
                 valid_choices=INLET_BC_CHOICES,
             )
 
-    if iinlet == 1:
-        bc_dict["ifbcx_u"][:2] = [BC.DATABS.value, BC.CONVOL.value]
-        bc_dict["ifbcx_p"][:2] = [BC.NEUMANN.value, BC.NEUMANN.value]
-        bc_dict["ifbcx_T"][:2] = [BC.DIRICHLET.value, BC.NEUMANN.value]
+    streamwise_prefix = "ifbcz" if icase == Case.DUCT.value else "ifbcx"
+    if iinlet != 1 and icase != Case.TGV3D.value:
+        bc_dict[f"{streamwise_prefix}_u"][:2] = [iinlet, BC.CONVOL.value]
+        bc_dict[f"{streamwise_prefix}_p"][:2] = [BC.NEUMANN.value, BC.NEUMANN.value]
+        bc_dict[f"{streamwise_prefix}_T"][:2] = [BC.DIRICHLET.value, BC.NEUMANN.value]
+        if ithermo == 1:
+            bc_dict[f"{streamwise_prefix}_T"][2] = get_input(
+                "Temperature (K) at thermal inlet", 645.15, float
+            )
 
     # Thermal BC
     if ithermo == 1:
@@ -532,8 +550,16 @@ def get_bc_settings():
                         "Heat flux (W/m²) on BC-x top", 0.0, float
                     )
     else:
-        # Copy velocity BC to thermal if no thermo
+        # Thermal BCs are still parsed in isothermal runs. Keep wall/periodic
+        # defaults consistent with the regression inputs, but preserve a
+        # Dirichlet/Neumann thermal inlet/outlet marker for open streamwise runs.
         copy_velocity_bc_to_thermal(bc_dict, ["ifbcy_T", "ifbcx_T", "ifbcz_T"])
+        if iinlet != 1 and icase != Case.TGV3D.value:
+            bc_dict[f"{streamwise_prefix}_T"][:2] = [
+                BC.DIRICHLET.value,
+                BC.NEUMANN.value,
+            ]
+            bc_dict[f"{streamwise_prefix}_T"][2:] = [0.0, 0.0]
 
     # Flow driving method
     idriven = 0

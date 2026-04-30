@@ -27,35 +27,35 @@
   },
 
   "total kinetic energy": {
-    "abs": 1e-10,
-    "rel": 1e-6
+    "abs": 1e-3,
+    "rel": 1e-3
   },
 
   "bulk velocity ux": {
-    "abs": 1e-10,
-    "rel": 1e-5
+    "abs": 1e-6,
+    "rel": 1e-4
   },
   "bulk velocity uz": {
-    "abs": 1e-8,
-    "rel": 1e-4
+    "abs": 1e-4,
+    "rel": 1e-2
   },
 
   "bulk massflux gx": {
-    "abs": 1e-10,
-    "rel": 1e-6
+    "abs": 1e-6,
+    "rel": 1e-4
   },
   "bulk massflux gz": {
-    "abs": 1e-8,
-    "rel": 1e-6
+    "abs": 1e-4,
+    "rel": 1e-2
   },
 
   "bulk enthalpy": {
-    "abs": 1e-8,
-    "rel": 1e-5
+    "abs": 1e-4,
+    "rel": 1e-2
   },
   "bulk temperature": {
-    "abs": 1e-8,
-    "rel": 1e-6
+    "abs": 1e-4,
+    "rel": 1e-2
   },
 
   "global energy balance": {

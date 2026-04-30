@@ -32,6 +32,7 @@ Comment lines starting with ``#`` are ignored automatically.
 Examples:
     python3 plot_monitor_bulk_change_history.py
     python3 plot_monitor_bulk_change_history.py --stride 20 --output my_plot.png
+    python3 plot_monitor_bulk_change_history.py --xmin 50
 
 Author: W Wang (STFC)
 """
@@ -106,6 +107,14 @@ def parse_args() -> argparse.Namespace:
         default=DEFAULT_OUTPUT_FILE,
         help=f"Output figure name (default: {DEFAULT_OUTPUT_FILE}).",
     )
+    parser.add_argument(
+        "--xmin",
+        "--x-min",
+        dest="x_min",
+        type=float,
+        default=None,
+        help="Only plot samples with time >= this value (default: plot all).",
+    )
     return parser.parse_args()
 
 
@@ -152,9 +161,26 @@ def decimate(data: np.ndarray, stride: int) -> np.ndarray:
     return data[::stride]
 
 
+def filter_by_time(data: np.ndarray, time_col: int, x_min: float | None) -> np.ndarray:
+    if x_min is None:
+        return data
+    return data[data[:, time_col] >= x_min]
+
+
 def plot_monitor_history(
-    metrics_data: np.ndarray, change_data: np.ndarray, stride: int, output: str
+    metrics_data: np.ndarray,
+    change_data: np.ndarray,
+    stride: int,
+    output: str,
+    x_min: float | None = None,
 ) -> Path:
+    metrics_data = filter_by_time(metrics_data, IDX_TIME, x_min)
+    change_data = filter_by_time(change_data, IDX_CHANGE_TIME, x_min)
+    if metrics_data.size == 0:
+        raise ValueError(f"No metrics-history data found for time >= {x_min}.")
+    if change_data.size == 0:
+        raise ValueError(f"No change-history data found for time >= {x_min}.")
+
     metrics = decimate(metrics_data, stride)
     changes = decimate(change_data, stride)
 
@@ -290,7 +316,7 @@ def main() -> None:
     metrics_data = read_monitor_file(args.metrics_file, MIN_METRICS_COLUMNS)
     change_data = read_monitor_file(args.change_file, MIN_CHANGE_COLUMNS)
     output_path = plot_monitor_history(
-        metrics_data, change_data, args.stride, args.output
+        metrics_data, change_data, args.stride, args.output, args.x_min
     )
 
     print(f"Saved plot to {output_path}")

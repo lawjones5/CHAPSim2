@@ -17,6 +17,11 @@
 ! this program; if not, write to the Free Software Foundation, Inc., 51 Franklin
 ! Street, Fifth Floor, Boston, MA 02110-1301, USA.
 !----------------------------------------------------------------------------------------------------------
+!> Flow and thermal field allocation and initialisation.
+!>
+!> This module allocates solver state arrays and constructs initial conditions
+!> from restart files, random perturbations, Poiseuille profiles, inlet data,
+!> prescribed constants, and Taylor-Green vortex functions.
 module flow_thermo_initialiasation
   use print_msg_mod
   use solver_tools_mod
@@ -37,22 +42,25 @@ module flow_thermo_initialiasation
   public  :: Validate_TGV2D_error
   public  :: initialise_flow_fields
   public  :: initialise_thermo_fields
-  
+
 
 contains
 !==========================================================================================================
-!> \brief Allocate flow and thermal variables.     
-!---------------------------------------------------------------------------------------------------------- 
+!> Allocate flow and thermal variables.
+!----------------------------------------------------------------------------------------------------------
 !> Scope:  mpi    called-freq    xdomain     module
 !>         all    once           specified   private
 !----------------------------------------------------------------------------------------------------------
 ! Arguments
 !----------------------------------------------------------------------------------------------------------
-!  mode           name          role                                         
+!  mode           name          role
 !----------------------------------------------------------------------------------------------------------
-!> \param[in]     none          NA
-!> \param[out]    none          NA
+!> - none (in): NA
+!> - none (out): NA
 !==========================================================================================================
+  !> Allocate flow-variable arrays for the current domain decomposition.
+  !> - fl (inout): Flow state receiving allocated arrays.
+  !> - dm (in): Domain descriptor.
   subroutine Allocate_flow_variables (fl, dm)
     use mpi_mod
     use parameters_constant_mod
@@ -63,7 +71,7 @@ contains
 
     if(nrank == 0) call Print_debug_start_msg("Allocating flow variables ...")
     !----------------------------------------------------------------------------------------------------------
-    ! default : x pencil. 
+    ! default : x pencil.
     ! varaible index is LOCAL. means 1:xsize(1)
     !----------------------------------------------------------------------------------------------------------
     call alloc_x(fl%qx,      dm%dpcc) ; fl%qx = ZERO
@@ -83,12 +91,12 @@ contains
     call alloc_x(fl%mz_rhs0, dm%dccp) ; fl%mz_rhs0 = ZERO
     call alloc_x(fl%drhodt,  dm%dccc) ; fl%drhodt  = ZERO
 
-    if(dm%is_conv_outlet(1)) then 
+    if(dm%is_conv_outlet(1)) then
       allocate (fl%fbcx_a0cc_rhs0(dm%dpcc%xsz(2), dm%dpcc%xsz(3))); fl%fbcx_a0cc_rhs0 = ZERO
       allocate (fl%fbcx_a0pc_rhs0(dm%dcpc%xsz(2), dm%dcpc%xsz(3))); fl%fbcx_a0pc_rhs0 = ZERO
       allocate (fl%fbcx_a0cp_rhs0(dm%dccp%xsz(2), dm%dccp%xsz(3))); fl%fbcx_a0cp_rhs0 = ZERO
     end if
-    if(dm%is_conv_outlet(3)) then 
+    if(dm%is_conv_outlet(3)) then
       allocate (fl%fbcz_apc0_rhs0(dm%dpcc%zsz(1), dm%dpcc%zsz(2))); fl%fbcz_apc0_rhs0 = ZERO
       allocate (fl%fbcz_acp0_rhs0(dm%dcpc%zsz(1), dm%dcpc%zsz(2))); fl%fbcz_acp0_rhs0 = ZERO
       allocate (fl%fbcz_acc0_rhs0(dm%dccp%zsz(1), dm%dccp%zsz(2))); fl%fbcz_acc0_rhs0 = ZERO
@@ -105,7 +113,7 @@ contains
     if(dm%outlet_sponge_layer(1) > MINP) then
       allocate (fl%rre_sponge_c(dm%dccc%xsz(1))); fl%rre_sponge_c = ZERO
       allocate (fl%rre_sponge_p(dm%dpcc%xsz(1))); fl%rre_sponge_p = ZERO
-      call Calculate_vis_sponge(fl, dm)  
+      call Calculate_vis_sponge(fl, dm)
     end if
 
     if(nrank == 0) call Print_debug_end_msg()
@@ -113,6 +121,9 @@ contains
 
   end subroutine Allocate_flow_variables
   !==========================================================================================================
+  !> Allocate thermal-variable arrays for the current domain decomposition.
+  !> - tm (inout): Thermal state receiving allocated arrays.
+  !> - dm (in): Domain descriptor.
   subroutine Allocate_thermo_variables (tm, dm)
     use mpi_mod
     use parameters_constant_mod
@@ -126,7 +137,7 @@ contains
     if(.not. dm%is_thermo) return
     if(nrank == 0) call Print_debug_start_msg("Allocating thermal variables ...")
     !----------------------------------------------------------------------------------------------------------
-    ! default : x pencil. 
+    ! default : x pencil.
     ! varaible index is LOCAL. means 1:xsize(1)
     !----------------------------------------------------------------------------------------------------------
     call alloc_x(tm%rhoh,     dm%dccc) ; tm%rhoh    = ZERO
@@ -136,10 +147,10 @@ contains
     call alloc_x(tm%ene_rhs,  dm%dccc) ; tm%ene_rhs = ZERO
     call alloc_x(tm%ene_rhs0, dm%dccc) ; tm%ene_rhs0 = ZERO
 
-    if(dm%is_conv_outlet(1)) then 
+    if(dm%is_conv_outlet(1)) then
       allocate (tm%fbcx_rhoh_rhs0(dm%dccc%xsz(2), dm%dccc%xsz(3))); tm%fbcx_rhoh_rhs0 = ZERO
     end if
-    if(dm%is_conv_outlet(3)) then 
+    if(dm%is_conv_outlet(3)) then
       allocate (tm%fbcz_rhoh_rhs0(dm%dccc%zsz(1), dm%dccc%xsz(2))); tm%fbcz_rhoh_rhs0 = ZERO
     end if
 
@@ -148,18 +159,19 @@ contains
 
   end subroutine Allocate_thermo_variables
   !==========================================================================================================
-  !> \brief Generate a flow profile for Poiseuille flow in channel or pipe.     
-  !---------------------------------------------------------------------------------------------------------- 
+  !> Generate a flow profile for Poiseuille flow in channel or pipe.
+  !----------------------------------------------------------------------------------------------------------
   !> Scope:  mpi    called-freq    xdomain     module
   !>         all    once           specified   private
   !----------------------------------------------------------------------------------------------------------
   ! Arguments
   !----------------------------------------------------------------------------------------------------------
-  !  mode           name          role                                           
+  !  mode           name          role
   !----------------------------------------------------------------------------------------------------------
-  !> \param[in]     
-  !> \param[out]    
-  !==========================================================================================================
+  ! !==========================================================================================================
+  !> Generate a random perturbation field for flow initialisation.
+  !> - fl (inout): Flow state receiving random perturbations.
+  !> - dm (in): Domain descriptor.
   subroutine Generate_random_field(fl, dm)
     use boundary_conditions_mod
     use math_mod
@@ -174,10 +186,10 @@ contains
     implicit none
     type(t_domain),  intent(in) :: dm
     type(t_flow), intent(inout) :: fl
-    
+
     integer :: i, j, k! local id
     integer :: ii, jj, kk ! global id
-    integer :: n, nsz  
+    integer :: n, nsz
     real(WP) :: rd, lownoise, rnd
     real(WP) :: envelope
     type(DECOMP_INFO) :: dtmp
@@ -219,7 +231,7 @@ contains
             !call generate_random11_stateless_hash(ii, jj, kk, n, rd)
 
             ! Method 3: Integer-only stateless hash (CPU/GPU consistent), then whiten via LCG.
-            ! call generate_random11_LCG_hash(ii, jj, kk, n, rd)        
+            ! call generate_random11_LCG_hash(ii, jj, kk, n, rd)
 
             ! Method 4: 64-bit XOR / Mix Hash (Stateless, CPU/GPU consistent)
             call generate_random11_mixhash(ii, jj, kk, n, rd)
@@ -279,17 +291,17 @@ contains
   end subroutine
 
   !==========================================================================================================
-  !> \brief Generate a flow profile for Poiseuille flow in channel or pipe.     
-  !---------------------------------------------------------------------------------------------------------- 
+  !> Generate a flow profile for Poiseuille flow in channel or pipe.
+  !----------------------------------------------------------------------------------------------------------
   !> Scope:  mpi    called-freq    xdomain     module
   !>         all    once           specified   private
   !----------------------------------------------------------------------------------------------------------
   ! Arguments
   !----------------------------------------------------------------------------------------------------------
-  !  mode           name          role                                           
+  !  mode           name          role
   !----------------------------------------------------------------------------------------------------------
-  !> \param[in]     d             domain
-  !> \param[out]    ux_1c1          u(yc), velocity profile along wall-normal direction
+  !> - d (in): domain
+  !> - ux_1c1 (out): u(yc), velocity profile along wall-normal direction
   !==========================================================================================================
   subroutine Generate_poiseuille_flow_profile(dm, u_xy)
     use io_files_mod
@@ -300,13 +312,13 @@ contains
 
     type(t_domain), intent(in)  :: dm
     real(WP),       intent(out) :: u_xy(:, :)
-    
-    real(WP) :: ay, by, yy, ymax, ymin 
+
+    real(WP) :: ay, by, yy, ymax, ymin
     real(WP) :: ax, bx, xx, xmax, xmin
     real(WP) :: fx, fy, c
     integer :: pf_unit
     integer :: i, j
-    
+
     if(nrank == 0) call Print_debug_inline_msg("Generate poiseuille flow profile ...")
 
     u_xy = ZERO
@@ -333,7 +345,7 @@ contains
       ay = (ymax - ymin) * HALF
       by = (ymax + ymin) * HALF
       c = TWO
-    else 
+    else
       ay = (ymax - ymin) * HALF
       by = ZERO
       c = ONEPFIVE
@@ -379,17 +391,17 @@ contains
   end subroutine Generate_poiseuille_flow_profile
 
   !==========================================================================================================
-  !> \brief initialise Poiseuille flow in channel or pipe.     
-  !---------------------------------------------------------------------------------------------------------- 
+  !> initialise Poiseuille flow in channel or pipe.
+  !----------------------------------------------------------------------------------------------------------
   !> Scope:  mpi    called-freq    xdomain     module
   !>         all    once           specified   private
   !----------------------------------------------------------------------------------------------------------
   ! Arguments
   !----------------------------------------------------------------------------------------------------------
-  !  mode           name          role                                           
+  !  mode           name          role
   !----------------------------------------------------------------------------------------------------------
-  !> \param[in]     d             domain
-  !> \param[out]    f             flow
+  !> - d (in): domain
+  !> - f (out): flow
   !==========================================================================================================
   subroutine initialise_poiseuille_flow(fl, dm)
     use boundary_conditions_mod
@@ -413,7 +425,7 @@ contains
     real(WP) :: uz(dm%dccp%xsz(1), dm%dccp%xsz(2), dm%dccp%xsz(3))
     real(WP) :: ux_ypencil(dm%dpcc%ysz(1), dm%dpcc%ysz(2), dm%dpcc%ysz(3))
     character(2) :: str
-    
+
 
     type(DECOMP_INFO) :: dtmp
 
@@ -543,7 +555,7 @@ contains
     implicit none
     !type(t_domain),  intent(in) :: dm
     type(t_flow), intent(inout) :: fl
-    
+
     if(nrank == 0) call Print_debug_inline_msg("Initialising flow field with given values...")
     !----------------------------------------------------------------------------------------------------------
     !   x-pencil : update values
@@ -566,13 +578,13 @@ contains
     use parameters_constant_mod, only: ZERO
     use precision_mod, only: WP
     use udf_type_mod, only: t_domain
-    
+
     implicit none
     type(t_domain),  intent(in) :: dm
     type(t_flow), intent(inout) :: fl
 
     integer :: i, j, k, ii, jj, kk
-    
+
     if(nrank == 0) call Print_debug_inline_msg("Initialising flow field with given profile...")
     !----------------------------------------------------------------------------------------------------------
     !   x-pencil : update values
@@ -618,6 +630,9 @@ contains
   end subroutine
 
   !==========================================================================================================
+  !> Initialise all flow fields according to the selected input mode.
+  !> - fl (inout): Flow state to initialise.
+  !> - dm (inout): Domain descriptor.
   subroutine initialise_flow_fields(fl, dm)
     use boundary_conditions_mod
     use continuity_eq_mod
@@ -650,8 +665,6 @@ contains
     fl%iteration = 0
 
     if(fl%inittype == INIT_RESTART) then
-      fl%iteration = fl%iterfrom
-      fl%time = real(fl%iterfrom, WP) * dm%dt 
       call read_instantaneous_flow(fl, dm)
       call restore_flow_variables_from_restart(fl, dm)
       !call read_stats_flow(fl, dm)
@@ -660,7 +673,7 @@ contains
       call Generate_random_field(fl, dm)
 
     else if (fl%inittype == INIT_INLET) then
-      
+
       if(dm%is_read_xinlet) then
         call read_instantaneous_xinlet(fl, dm, opt_iter=1)
       else
@@ -702,24 +715,24 @@ contains
       call Find_max_min_3d(fl%gy, opt_name="gy")
       call Find_max_min_3d(fl%gz, opt_name="gz")
     end if
-  
+
 #ifdef DEBUG_STEPS
     !call wrt_3d_pt_debug(fl%qx, dm%dpcc,   fl%iteration, 0, 'qx@bf inoutlet') ! debug_ww
     !call wrt_3d_pt_debug(fl%qy, dm%dcpc,   fl%iteration, 0, 'qy@bf inoutlet') ! debug_ww
     !call wrt_3d_pt_debug(fl%qz, dm%dccp,   fl%iteration, 0, 'qz@bf inoutlet') ! debug_ww
     !call wrt_3d_pt_debug(fl%pres, dm%dccc, fl%iteration, 0, 'pr@bf inoutlet') ! debug_ww
-#endif 
-  
+#endif
+
     !call update_dyn_fbcx_from_flow(dm, fl%qx, fl%qy, fl%qz, dm%fbcx_qx, dm%fbcx_qy, dm%fbcx_qz)
     !call enforce_domain_mass_balance_dyn_fbc(fl%drhodt, dm)
 !----------------------------------------------------------------------------------------------------------
 ! to initialise pressure correction term
 !----------------------------------------------------------------------------------------------------------
-    fl%pcor(:, :, :) = ZERO 
+    fl%pcor(:, :, :) = ZERO
     ! to set up halo b.c. for cylindrical pipe
     if(dm%icase == ICASE_PIPE) call update_fbcy_cc_flow_halo(fl, dm)
 
-    call Check_element_mass_conservation(fl, dm, 0, opt_str='initial') 
+    call Check_element_mass_conservation(fl, dm, 0, opt_str='initial')
     if(.not. is_IO_off) call write_visu_flow(fl, dm, 'init')
 
     if(nrank == 0) call Print_debug_end_msg()
@@ -728,6 +741,10 @@ contains
   end subroutine
 
   !==========================================================================================================
+  !> Initialise all thermal fields according to the selected input mode.
+  !> - tm (inout): Thermal state to initialise.
+  !> - fl (inout): Flow state coupled to thermal properties.
+  !> - dm (inout): Domain descriptor.
   subroutine initialise_thermo_fields(tm, fl, dm)
     use boundary_conditions_mod
     use eq_energy_mod
@@ -746,18 +763,16 @@ contains
     integer :: i
 
     if(.not. dm%is_thermo) return
-    if(nrank == 0) call Print_debug_start_msg("Initialise thermo fields ...")  
+    if(nrank == 0) call Print_debug_start_msg("Initialise thermo fields ...")
 !----------------------------------------------------------------------------------------------------------
 ! to set up Fr etc, require update flow Re first
 !----------------------------------------------------------------------------------------------------------
     call Update_Re(fl%iterfrom, fl)
-    call Update_PrGr(fl, tm) 
+    call Update_PrGr(fl, tm)
 !----------------------------------------------------------------------------------------------------------
 ! initialise primary variables
 !----------------------------------------------------------------------------------------------------------
     if(tm%inittype == INIT_RESTART) then
-      tm%iteration = tm%iterfrom
-      tm%time = real(tm%iterfrom, WP) * dm%dt 
       call read_instantaneous_thermo  (tm, dm)
       call restore_thermo_variables_from_restart(fl, tm, dm)
       !call read_stats_thermo(tm, dm)
@@ -769,7 +784,7 @@ contains
       end if
       tm%time = ZERO
       tm%iteration = 0
-      ! reset time for flow field when a new thermal field is enabled. 
+      ! reset time for flow field when a new thermal field is enabled.
       fl%time = ZERO
       fl%iteration = 0
     end if
@@ -788,7 +803,7 @@ contains
   end subroutine
 !==========================================================================================================
 !==========================================================================================================
-!> \brief initialise Vortex Green flow
+!> initialise Vortex Green flow
 !>
 !> This subroutine is called locally once.
 !>
@@ -797,14 +812,14 @@ contains
 !______________________________________________________________________________.
 !  mode           name          role                                           !
 !______________________________________________________________________________!
-!> \param[in]     d             domain
-!> \param[out]    f             flow
+!> - d (in): domain
+!> - f (out): flow
 !_______________________________________________________________________________
   subroutine  initialise_vortexgreen_2dflow(fl, dm)
     use math_mod
     use parameters_constant_mod!, only : HALF, ZERO, SIXTEEN, TWO
     use udf_type_mod
-    
+
     implicit none
     type(t_domain), intent(in ) :: dm
     type(t_flow), intent(inout) :: fl
@@ -829,7 +844,7 @@ contains
     end do
 !----------------------------------------------------------------------------------------------------------
 !   uy in x-pencil
-!---------------------------------------------------------------------------------------------------------- 
+!----------------------------------------------------------------------------------------------------------
     dtmp = dm%dcpc
     do j = 1, dtmp%xsz(2)
       jj = dtmp%xst(2) + j - 1 !local2global_yid(j, dtmp)
@@ -842,7 +857,7 @@ contains
     end do
 !----------------------------------------------------------------------------------------------------------
 !   uz in x-pencil
-!---------------------------------------------------------------------------------------------------------- 
+!----------------------------------------------------------------------------------------------------------
     fl%qz(:, :, :) =  ZERO
 !----------------------------------------------------------------------------------------------------------
 !   p in x-pencil
@@ -858,7 +873,7 @@ contains
     !     p(i, j, :)= ( cos_wp(TWO * xc) + sin(TWO * yc) ) * QUARTER
     !   end do
     ! end do
-    
+
     if(nrank == 0) call Print_debug_end_msg()
     return
   end subroutine initialise_vortexgreen_2dflow
@@ -869,7 +884,7 @@ contains
     use math_mod
     use parameters_constant_mod
     use udf_type_mod
-    
+
     !use iso_fortran_env
     implicit none
 
@@ -986,7 +1001,7 @@ contains
   end subroutine
 !==========================================================================================================
 !==========================================================================================================
-!> \brief initialise Vortex Green flow
+!> initialise Vortex Green flow
 !>
 !> This subroutine is called locally once.
 !>
@@ -995,14 +1010,14 @@ contains
 !______________________________________________________________________________.
 !  mode           name          role                                           !
 !______________________________________________________________________________!
-!> \param[in]     d             domain
-!> \param[out]    f             flow
+!> - d (in): domain
+!> - f (out): flow
 !_______________________________________________________________________________
   subroutine  initialise_vortexgreen_3dflow(fl, dm)
     use math_mod
     use parameters_constant_mod!, only : HALF, ZERO, SIXTEEN, TWO, PI
     use udf_type_mod
-    
+
     implicit none
     type(t_domain), intent(in ) :: dm
     type(t_flow), intent(inout) :: fl
@@ -1014,7 +1029,7 @@ contains
     if(nrank == 0) call Print_debug_inline_msg("Initialising Taylor Green Vortex flow field ...")
 !----------------------------------------------------------------------------------------------------------
 !   ux in x-pencil
-!---------------------------------------------------------------------------------------------------------- 
+!----------------------------------------------------------------------------------------------------------
     dtmp = dm%dpcc
     do k = 1, dtmp%xsz(3)
       kk = dtmp%xst(3) + k - 1
@@ -1049,7 +1064,7 @@ contains
     end do
 !----------------------------------------------------------------------------------------------------------
 !   uz in x-pencil
-!---------------------------------------------------------------------------------------------------------- 
+!----------------------------------------------------------------------------------------------------------
     !uz(:, :, :) =  ZERO
     dtmp = dm%dccp
     do k = 1, dtmp%xsz(3)
@@ -1079,7 +1094,7 @@ contains
     end do
 
     if(nrank == 0) call Print_debug_end_msg()
-    
+
     return
   end subroutine initialise_vortexgreen_3dflow
   !==========================================================================================================
@@ -1087,7 +1102,7 @@ contains
     use math_mod
     use parameters_constant_mod!, only : HALF, ZERO, SIXTEEN, TWO, PI
     use udf_type_mod
-    
+
     implicit none
     type(t_domain), intent(in ) :: dm
     type(t_flow), intent(inout) :: fl
@@ -1103,7 +1118,7 @@ contains
 
 
     if( .not. dm%is_thermo) return
-      
+
     dtmp = dm%dccc
     do k = 1, dtmp%xsz(3)
       kk = dtmp%xst(3) + k - 1
@@ -1114,7 +1129,7 @@ contains
         do i = 1, dtmp%xsz(1)
           ii = dtmp%xst(1) + i - 1
           xc = dm%h(1) * (real(ii - 1, WP) + HALF)
-          ! Method 1: 
+          ! Method 1:
           if(i_ini_T == 1) then ! isothermal perturbation
             tm%Ttemp(i, j, k)= ONE + fl%noiselevel * cos_wp(xc) * cos_wp(yc) * cos_wp(zc)
           else if(i_ini_T == 2) then ! T proportional to kinetic energy
@@ -1130,7 +1145,7 @@ contains
     end do
 
     if(nrank == 0) call Print_debug_end_msg()
-    
+
     return
   end subroutine
 

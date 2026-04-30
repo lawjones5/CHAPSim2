@@ -19,7 +19,6 @@ build/*.mod
 .history/
 *.log
 *.dat
-*.png
 .codex
 chapsim2.code-workspace
 .codex/

@@ -68,7 +68,7 @@ CHAPSim2/
 ### Download
 
 ```bash
-git git@github.com:CCP-NTH/CHAPSim2.git
+git clone https://github.com/CCP-NTH/CHAPSim2.git
 cd CHAPSim2
 ```
 

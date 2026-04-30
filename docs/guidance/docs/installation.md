@@ -24,6 +24,14 @@ sudo apt-get install gfortran make
 
 On an HPC system, prefer the site-provided compiler and MPI modules.
 
+
+## Download
+
+```bash
+git clone https://github.com/CCP-NTH/CHAPSim2.git
+cd CHAPSim2
+```
+
 ## Build
 
 From the repository root:
@@ -42,14 +50,14 @@ small MPI size:
 
 ```bash
 cd tests/<case_name>
-mpirun -np 4 ../../build/chapsim input_chapsim.ini
+mpirun -np 4 $PATH/CHAPSim2/bin/chapsim
 ```
 
 For quick smoke tests, the solver can shorten the final iteration through the
 environment variable `CHAPSIM_NITER`:
 
 ```bash
-CHAPSIM_NITER=20 mpirun -np 4 ../../build/chapsim input_chapsim.ini
+CHAPSIM_NITER=20 mpirun -np 4 $PATH/CHAPSim2/bin/chapsim
 ```
 
 ## What to Check

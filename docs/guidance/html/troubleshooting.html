@@ -140,19 +140,19 @@
 <div class="nav-section"><span>Troubleshooting</span><a href="troubleshooting.html">Troubleshooting</a></div><a class="doc-home" href="../../index.html">Documentation Home</a></nav>
       <article>
 <h1>Troubleshooting</h1>
-<p>This page collects common setup, documentation, run, and postprocessing issues. Use it as a first stop before changing solver settings.</p>
+<p>This page provides solutions for common setup, execution, and post-processing issues encountered during CHAPSim2 usage. Consult this section before modifying solver parameters.</p>
 <h2>Documentation Opens as Raw Markdown</h2>
-<p>If Chrome shows Markdown source text instead of a formatted page, open the generated HTML version:</p>
-<pre><code class="language-bash">google-chrome /home/weiwang/Work_RSDevelopment/1_CHAPSim/CHAPSim2/docs/index.html</code></pre>
+<p>If Chrome displays raw Markdown text instead of formatted HTML, access the compiled HTML documentation from the repository root:</p>
+<pre><code class="language-bash">google-chrome docs/guidance/html/index.html</code></pre>
 <p>Then choose <strong>User Guidance</strong>. The browser-facing pages are under:</p>
 <pre><code class="language-text">docs/guidance/html/</code></pre>
 <p>The Markdown source files are still kept under:</p>
 <pre><code class="language-text">docs/guidance/docs/</code></pre>
-<p>After editing a Markdown source file, regenerate the local HTML preview with:</p>
+<p>To regenerate the local HTML preview after editing source Markdown:</p>
 <pre><code class="language-bash">python3 docs/guidance/build_static.py</code></pre>
-<p>This route does not require MkDocs.</p>
+<p>This procedure does not require MkDocs.</p>
 <h2>MkDocs Is Not Installed</h2>
-<p>MkDocs is optional. The dependency-free static builder above is enough for local preview in a browser. Use MkDocs only when you want the full Material theme site.</p>
+<p>MkDocs is optional. A dependency-free static HTML builder is available for local browser preview. Employ MkDocs only when the complete Material theme documentation site is required.</p>
 <h2>Figure Saving Fails on a Mounted Filesystem</h2>
 <p>On remote or mounted filesystems, Matplotlib may fail with an error such as:</p>
 <pre><code class="language-text">OSError: [Errno 5] Input/output error</code></pre>

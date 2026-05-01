@@ -1,55 +1,39 @@
 # CHAPSim Input File Guide
 
-CHAPSim reads run settings from an INI-style file, normally named
-`input_chapsim.ini`. The input generators may create files named
-`input_chapsim_auto.ini` or `input_chapsim_gui.ini`; before running the solver,
-place or rename the chosen file as `input_chapsim.ini` in the case directory.
+CHAPSim2 reads simulation parameters from an INI-style configuration file, typically named `input_chapsim.ini`. Input generation tools may produce files named `input_chapsim_auto.ini` or `input_chapsim_gui.ini`; before solver execution, ensure the selected file is placed or renamed as `input_chapsim.ini` in the case directory.
 
-The parser is section based, but within each section the line order is important.
-Keep variables in the order shown by the generated templates.
+The file parser operates on a section-based structure; however, variable order within sections is significant. Maintain variable order as shown in generated templates.
 
 ## What This File Controls
 
-The input file is the main contract between the user and the Fortran solver. It
-sets:
+The input file establishes the primary interface between user specifications and the Fortran solver. It controls:
 
-- Physical configuration: geometry, Reynolds number, thermal/MHD options, and
-  working-fluid model.
-- Numerical setup: grid resolution, domain size, stretching, time step, and
-  spatial/time schemes.
-- Boundary conditions: periodic directions, inlet/outlet treatment, wall
-  velocity conditions, wall temperature, and wall heat flux.
-- Run control: first and last iteration for flow and thermal fields.
-- Output: restart frequency, visualisation frequency, statistics sampling, and
-  database plane input/output.
-- Diagnostics: probe locations and monitor-output cadence.
+- **Physical configuration**: Geometry specification, Reynolds number, thermal/magnetohydrodynamic options, and working-fluid properties
+- **Numerical discretization**: Grid resolution, domain extent, mesh stretching, time-stepping, and spatial/temporal discretization schemes
+- **Boundary conditions**: Periodic directions, inlet/outlet treatment, wall velocity specifications, wall temperature, and wall heat flux
+- **Simulation control**: Iteration ranges for flow and thermal field computation
+- **Output specification**: Restart checkpoint frequency, visualization output frequency, statistics accumulation parameters, and database plane I/O
+- **Diagnostics**: Probe location definitions and monitoring-output frequency
 
-For a new case, start from the closest `tests/*/input_chapsim.ini` file or use
-`prepost/input_generator/autoinput_script.py` / `autoinput_gui.py`, then edit the
-generated file.
+For new configurations, begin with the most similar existing `tests/*/input_chapsim.ini` template or generate a file using `prepost/autoinput/autoinput_script.py` or `autoinput_gui.py`, then edit accordingly.
 
 ## Basic Rules
 
-- Boolean values use Fortran logical syntax: `.true.` or `.false.`.
-- Integer values are whole-number IDs or counters.
-- Real values may be written as decimal or scientific notation, for example `1e-05`.
-- Lists are comma-separated, for example `veloinit= 0.0,0.0,0.0`.
-- Lengths in `[domain]` are nondimensional by the reference half-height, radius,
-  or equivalent case length.
-- Thermal reference length, temperature, and heat flux use SI units before the
-  solver nondimensionalises them.
-- Reynolds numbers are based on channel half-height, pipe radius, or equivalent
-  case reference length.
-- Boundary rows use `bc_low,bc_high,value_low,value_high`.
-- Lines starting with `#` or `;`, blank lines, and leading-space comment lines
-  are ignored.
-- Keep generated API/reference output separate from source documentation. In this
-  repository, user guidance source pages live under `docs/guidance/docs/`, while
-  generated FORD code-structure pages live under `docs/code_structure/`.
+| Property | Format |
+| --- | --- |
+| Boolean values | Fortran logical syntax: `.true.` or `.false.` |
+| Integer values | Whole-number identifiers or counters |
+| Real values | Decimal or scientific notation (e.g., `1e-05`) |
+| List values | Comma-separated (e.g., `veloinit= 0.0,0.0,0.0`) |
+| Domain lengths | Nondimensional with respect to reference half-height, radius, or equivalent case length |
+| Thermal parameters | SI units before solver nondimensionalization |
+| Reynolds numbers | Based on channel half-height, pipe radius, or equivalent case reference length |
+| Boundary condition rows | Format: `bc_low,bc_high,value_low,value_high` |
+| Comments | Lines beginning with `#` or `;`, blank lines, or indented comment lines are ignored |
 
 ## `[process]`
 
-Controls high-level run mode.
+Governs high-level execution mode selection.
 
 | Variable | Fortran type | Meaning |
 |---|---|---|

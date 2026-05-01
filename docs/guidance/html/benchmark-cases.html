@@ -140,109 +140,109 @@
 <div class="nav-section"><span>Troubleshooting</span><a href="troubleshooting.html">Troubleshooting</a></div><a class="doc-home" href="../../index.html">Documentation Home</a></nav>
       <article>
 <h1>Benchmark and Example Cases</h1>
-<p>The best way to start a new CHAPSim2 setup is to copy the closest existing case and then edit <code>input_chapsim.ini</code>. The <code>tests/</code> directory contains compact cases used for smoke and regression checks. The <code>examples/</code> directory contains postprocessing scripts and reference data for selected production-style cases.</p>
+<p>The recommended approach for creating a new CHAPSim2 configuration is to locate the most similar existing case and duplicate it, then edit <code>input_chapsim.ini</code> according to your requirements. The <code>tests/</code> directory contains compact validation cases designed for smoke and regression testing. The <code>examples/</code> directory contains postprocessing scripts and reference data for selected canonical production-scale cases.</p>
 <h2>Case Families</h2>
 <table><thead><tr>
 <th>Family</th>
 <th>Representative test cases</th>
-<th>Main purpose</th>
+<th>Primary use</th>
 </tr></thead><tbody>
 <tr>
 <td>Taylor-Green vortex</td>
 <td><code>tgv_iso</code>, <code>tgv_scp</code></td>
-<td>Periodic validation case for core numerics, scalar/thermal coupling, and regression metrics.</td>
+<td>Periodic validation for core numerics, scalar/thermal coupling, and regression metrics</td>
 </tr>
 <tr>
 <td>Channel flow</td>
 <td><code>channel_iso_periodic</code>, <code>channel_iso_inout</code>, <code>channel_scp_*</code></td>
-<td>Wall-bounded Cartesian cases, periodic or inlet/outlet, isothermal or thermal.</td>
+<td>Wall-bounded Cartesian configurations (periodic or inlet/outlet, isothermal or thermal)</td>
 </tr>
 <tr>
 <td>Pipe flow</td>
 <td><code>pipe_iso_periodic</code>, <code>pipe_iso_inout</code>, <code>pipe_scp_*</code></td>
-<td>Cylindrical wall-bounded cases with radial/azimuthal constraints.</td>
+<td>Cylindrical wall-bounded cases with radial/azimuthal constraints</td>
 </tr>
 <tr>
 <td>Annular flow</td>
 <td><code>annular_iso_periodic</code>, <code>annular_iso_inout</code>, <code>annular_scp_*</code></td>
-<td>Cylindrical annular cases with inner and outer wall treatment.</td>
+<td>Cylindrical annular geometries with inner and outer wall treatment</td>
 </tr>
 </tbody></table>
 <p>Suffixes in case names are used consistently:</p>
 <table><thead><tr>
 <th>Suffix</th>
-<th>Meaning</th>
+<th>Definition</th>
 </tr></thead><tbody>
 <tr>
 <td><code>iso</code></td>
-<td>Isothermal flow.</td>
+<td>Isothermal flow configuration</td>
 </tr>
 <tr>
 <td><code>scp</code></td>
-<td>Scalar/thermal property case.</td>
+<td>Scalar/thermal property case</td>
 </tr>
 <tr>
 <td><code>periodic</code></td>
-<td>Periodic streamwise direction, usually driven by pressure gradient or flow-rate control.</td>
+<td>Periodic streamwise direction (typically pressure-gradient or flow-rate controlled)</td>
 </tr>
 <tr>
 <td><code>inout</code></td>
-<td>Inlet/outlet case.</td>
+<td>Inlet/outlet boundary condition</td>
 </tr>
 <tr>
 <td><code>Tw</code></td>
-<td>Wall-temperature thermal boundary condition.</td>
+<td>Wall-temperature thermal boundary condition</td>
 </tr>
 <tr>
 <td><code>qw</code></td>
-<td>Wall-heat-flux thermal boundary condition.</td>
+<td>Wall-heat-flux thermal boundary condition</td>
 </tr>
 </tbody></table>
-<h2>Recommended Starting Points</h2>
+<h2>Use Cases and Starting Configurations</h2>
 <table><thead><tr>
-<th>Goal</th>
-<th>Start from</th>
+<th>Objective</th>
+<th>Recommended starting case</th>
 </tr></thead><tbody>
 <tr>
-<td>First successful solver run</td>
+<td>Initial solver validation</td>
 <td><code>tests/tgv_iso</code></td>
 </tr>
 <tr>
-<td>Periodic channel DNS</td>
+<td>Periodic channel Direct Numerical Simulation</td>
 <td><code>tests/channel_iso_periodic</code></td>
 </tr>
 <tr>
-<td>Channel inlet/outlet setup</td>
+<td>Channel with inlet/outlet conditions</td>
 <td><code>tests/channel_iso_inout</code></td>
 </tr>
 <tr>
-<td>Periodic pipe DNS</td>
+<td>Periodic pipe Direct Numerical Simulation</td>
 <td><code>tests/pipe_iso_periodic</code></td>
 </tr>
 <tr>
-<td>Pipe inlet/outlet setup</td>
+<td>Pipe with inlet/outlet conditions</td>
 <td><code>tests/pipe_iso_inout</code></td>
 </tr>
 <tr>
-<td>Annular periodic setup</td>
+<td>Annular periodic configuration</td>
 <td><code>tests/annular_iso_periodic</code></td>
 </tr>
 <tr>
-<td>Thermal wall-temperature case</td>
-<td>closest <code>*_Tw</code> case</td>
+<td>Thermal case with wall-temperature</td>
+<td>Closest <code>*_Tw</code> case</td>
 </tr>
 <tr>
-<td>Thermal wall-heat-flux case</td>
-<td>closest <code>*_qw</code> case</td>
+<td>Thermal case with wall-heat-flux</td>
+<td>Closest <code>*_qw</code> case</td>
 </tr>
 </tbody></table>
-<p>After copying a case, check:</p>
+<p>After copying a case, verify the following parameters:</p>
 <ol>
-<li><code>[domain] icase</code> and domain lengths.</li>
-<li><code>[mesh] ncx</code>, <code>ncy</code>, <code>ncz</code>, <code>istret</code>, and <code>rstret</code>.</li>
-<li><code>[flow] initfl</code>, <code>ren</code>, <code>idriven</code>, and boundary-condition choices.</li>
-<li><code>[thermo]</code> only when thermal/scalar physics is required.</li>
-<li><code>[io]</code> and <code>[statistics]</code> output frequency before launching production runs.</li>
+<li><code>[domain] icase</code> and domain spatial extent</li>
+<li><code>[mesh] ncx</code>, <code>ncy</code>, <code>ncz</code>, <code>istret</code>, and <code>rstret</code></li>
+<li><code>[flow] initfl</code>, <code>ren</code>, <code>idriven</code>, and boundary-condition selections</li>
+<li><code>[thermo]</code> only when thermal or scalar physics is enabled</li>
+<li><code>[io]</code> and <code>[statistics]</code> output frequencies before executing production simulations</li>
 </ol>
 <h2>Example Postprocessing Assets</h2>
 <table><thead><tr>
@@ -283,11 +283,11 @@
 </tr>
 </tbody></table>
 <h2>How Benchmarks Fit the Workflow</h2>
-<p>Use benchmark cases in three stages:</p>
+<p>Use benchmark cases in three sequential stages:</p>
 <ol>
-<li><strong>Build confidence:</strong> run a small smoke or TGV case after compiling.</li>
-<li><strong>Create a new setup:</strong> copy the closest case and adjust the input file.</li>
-<li><strong>Validate results:</strong> compare monitor histories, mean profiles, stresses, and reference data where available.</li>
+<li><strong>Build confidence</strong>: Run a small smoke test or Taylor-Green vortex case immediately after compilation</li>
+<li><strong>Create new configuration</strong>: Copy the most similar case and adapt the input file to your requirements</li>
+<li><strong>Validate results</strong>: Compare monitor histories, mean profiles, stresses, and available reference data</li>
 </ol>
 <p>For automated checking, see <a href="testing.html">Regression and Smoke Tests</a>. For profile plotting and visualisation, see <a href="postprocessing.html">Postprocessing and Output Data</a>.</p>
       </article>

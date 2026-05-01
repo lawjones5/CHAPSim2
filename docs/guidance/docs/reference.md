@@ -1,6 +1,6 @@
 # Reference
 
-Reference pages are intended for lookup rather than linear reading.
+Reference documentation is organized for quick lookup rather than sequential reading.
 
 ## User-Facing Reference
 

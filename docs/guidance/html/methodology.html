@@ -175,15 +175,15 @@
 </tbody></table>
 <p>Pipe and annular cases use cylindrical-coordinate constraints internally. Several domain values are reset by the input-reading logic for these cases, so always check the run log for final interpreted values.</p>
 <h2>Mesh and Stretching</h2>
-<p>Wall-normal or radial resolution is controlled by the <code>[mesh]</code> section. The main choices are:</p>
+<p>Wall-normal or radial resolution is controlled by the <code>[mesh]</code> section. Available options include:</p>
 <ul>
-<li>no stretching;</li>
-<li>centre, two-side, bottom-side, or top-side clustering;</li>
-<li>five-mode spectral, tanh, or power-law stretching method.</li>
+<li><strong>No stretching</strong>: uniform grid spacing</li>
+<li><strong>Geometric clustering</strong>: centre, two-side, bottom-side, or top-side clustering</li>
+<li><strong>Spectral element stretching</strong>: three-point finite-difference (3-point FD), hyperbolic tangent (tanh), or power-law methods</li>
 </ul>
 <p>Use the <a href="mesh-reviewer.html">Mesh Stretching Reviewer</a> to inspect a candidate mesh before launching production runs.</p>
 <h2>Boundary Conditions and Driving</h2>
-<p>Periodic wall-bounded cases normally use a driving-force or flow-rate control mode. Inlet/outlet cases should usually use database or prescribed inlet conditions and avoid periodic driving.</p>
+<p>Periodic wall-bounded cases typically employ either pressure-gradient driving or flow-rate control. Inlet/outlet cases should use external boundary conditions (database or prescribed inlet profiles) and avoid periodic driving to maintain consistent external forcing.</p>
 <p>The input guide documents the boundary-condition IDs and common combinations:</p>
 <p><a href="input-file.html">CHAPSim Input File Guide</a></p>
 <h2>Output and Statistics</h2>

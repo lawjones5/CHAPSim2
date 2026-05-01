@@ -141,7 +141,7 @@
       <article>
 <h1>Regression and Smoke Tests</h1>
 <p>The <code>tests/</code> directory contains ready-to-run cases and helper scripts for quick health checks and numerical regression checks.</p>
-<p>Use smoke tests for fast confidence after build or input-generation changes. Use regression tests before merging solver, discretisation, I/O, or physics changes.</p>
+<p>Use smoke tests for rapid validation after build or input-generation changes. Use regression tests before merging solver, discretization, I/O, or physics modifications.</p>
 <h2>Test Scripts</h2>
 <table><thead><tr>
 <th>Script</th>
@@ -149,71 +149,63 @@
 </tr></thead><tbody>
 <tr>
 <td><code>tests/run_smoke.sh</code></td>
-<td>Runs a short 10-iteration subset of representative cases.</td>
+<td>Execute a brief 10-iteration subset of representative cases for rapid validation</td>
 </tr>
 <tr>
 <td><code>tests/run_regression.sh</code></td>
-<td>Runs or checks standard/extended regression suites against reference metrics.</td>
+<td>Run or validate standard/extended regression suites against reference metrics</td>
 </tr>
 <tr>
 <td><code>tests/update_reference.sh</code></td>
-<td>Replaces <code>reference.json</code> files with newly generated metrics. Use only after intentional validated changes.</td>
+<td>Replace <code>reference.json</code> files with newly generated metrics (use only after validated changes)</td>
 </tr>
 <tr>
 <td><code>tests/tools/check_metrics.py</code></td>
-<td>Compares <code>regression_test_metrics.json</code> with <code>reference.json</code> using tolerances.</td>
+<td>Compare <code>regression_test_metrics.json</code> against <code>reference.json</code> using specified tolerances</td>
 </tr>
 <tr>
 <td><code>tests/tools/tolerances.json</code></td>
-<td>Stores metric comparison tolerances.</td>
+<td>Metric comparison tolerance specifications</td>
 </tr>
 </tbody></table>
 <h2>Smoke Tests</h2>
 <p>From the <code>tests/</code> directory:</p>
 <pre><code class="language-bash">cd tests
 bash run_smoke.sh</code></pre>
-<p>The smoke suite currently targets a short representative set:</p>
-<ul>
-<li><code>tgv_iso</code></li>
-<li><code>channel_iso_inout</code></li>
-<li><code>channel_scp_inout_Tw</code></li>
-<li><code>annular_scp_inout_Tw</code></li>
-<li><code>pipe_scp_inout_Tw</code></li>
-</ul>
-<p>The script sets <code>RUN_MODE=smoke</code> and runs each case with <code>CHAPSIM_NITER=10</code>. This is intended to catch build failures, missing files, bad input generation, and early runtime errors. It is not a substitute for a statistically converged validation run.</p>
+<p>The smoke suite is designed to detect build failures, missing files, invalid input generation, and early runtime errors. It is not intended as a substitute for statistically converged production validation.</p>
 <h2>Regression Tests</h2>
-<p>From the <code>tests/</code> directory:</p>
+<p>From the <code>tests/</code> directory, execute:</p>
 <pre><code class="language-bash">cd tests
 bash run_regression.sh</code></pre>
-<p>The script supports two modes:</p>
+<p>The script supports two operational modes:</p>
 <table><thead><tr>
 <th>Mode</th>
-<th>Meaning</th>
+<th>Behavior</th>
 </tr></thead><tbody>
 <tr>
 <td><code>run</code></td>
-<td>Run each case, wait for <code>regression_test_metrics.json</code>, then compare metrics.</td>
+<td>Execute each case, await <code>regression_test_metrics.json</code>, then validate metrics</td>
 </tr>
 <tr>
 <td><code>check</code></td>
-<td>Skip solver execution and compare existing metrics only.</td>
+<td>Skip solver execution and validate existing metrics only</td>
 </tr>
 </tbody></table>
-<p>It also supports two suites:</p>
+<p>Two test suites are available:</p>
 <table><thead><tr>
 <th>Suite</th>
-<th>Meaning</th>
+<th>Scope</th>
 </tr></thead><tbody>
 <tr>
 <td><code>standard</code></td>
-<td>Smaller default set used for routine checks.</td>
+<td>Compact default set for routine validation</td>
 </tr>
 <tr>
 <td><code>extended</code></td>
-<td>Larger set covering additional thermal, periodic, inlet/outlet, annular, and pipe cases.</td>
+<td>Comprehensive set covering thermal, periodic, inlet/outlet, annular, and pipe cases</td>
 </tr>
 </tbody></table>
-<p>In continuous integration, defaults are used without interactive prompts.</p>
+<p>In continuous integration environments, defaults are applied without interactive user prompts.</p>
 <h2>Reference Metrics</h2>
 <p>Each regression case should contain:</p>
 <table><thead><tr>
@@ -243,16 +235,16 @@ bash run_regression.sh</code></pre>
   tests/&lt;case&gt;/reference.json \
   tests/tools/tolerances.json</code></pre>
 <h2>Updating References</h2>
-<p>Only update references after confirming that the numerical change is intentional and physically acceptable.</p>
+<p>Update references only after confirming that any numerical changes are intentional and physically validated.</p>
 <pre><code class="language-bash">cd tests
 bash update_reference.sh</code></pre>
-<p>This copies each available <code>regression_test_metrics.json</code> to <code>reference.json</code>. Review the resulting diff before committing.</p>
-<h2>Recommended Policy</h2>
+<p>This operation copies each available <code>regression_test_metrics.json</code> to <code>reference.json</code>. Review the resulting version-control diff before committing.</p>
+<h2>Recommended Testing Policy</h2>
 <ul>
-<li>After editing input-generation tools: run smoke tests and at least the affected generated case.</li>
-<li>After editing I/O, restart, mesh, or boundary-condition logic: run smoke tests plus the standard regression suite.</li>
-<li>After editing numerical schemes or physics models: run the extended regression suite and inspect representative monitor histories.</li>
-<li>Before updating references: keep a note explaining why the new metrics are expected.</li>
+<li><strong>Input-generation tool modifications</strong>: Execute smoke tests and at least the affected generated cases</li>
+<li><strong>I/O, restart, mesh, or boundary-condition modifications</strong>: Execute smoke tests plus the standard regression suite</li>
+<li><strong>Numerical scheme or physics model modifications</strong>: Execute the extended regression suite and inspect representative monitor histories</li>
+<li><strong>Reference metric updates</strong>: Document the rationale explaining why new metrics are expected</li>
 </ul>
       </article>
     </div>

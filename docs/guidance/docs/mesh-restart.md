@@ -1,38 +1,30 @@
-# Restarting on a Different Mesh
+# Mesh-Restart Interpolation Workflow
 
-This workflow is used when a case should continue from an existing solution but
-the target case uses a different mesh or box size with the same topology. Typical
-uses are mesh refinement, mesh coarsening, or changing the domain length while
-keeping the same flow configuration.
+This procedure enables simulation continuation from an existing converged solution while employing a different mesh or domain size with identical topology. Typical applications include grid refinement, grid coarsening, or domain-size modification while preserving the original flow configuration.
 
 The helper scripts are:
 
-| Script | Run location | Purpose |
+| Script | Execution location | Purpose |
 | --- | --- | --- |
-| `prepost/input_generator/setup_chapsim_interp_step1.sh` | Source case directory | Prepare the source case for interpolation output and create `input_chapsim_tgt.ini`. |
-| `prepost/input_generator/setup_chapsim_interp_step2.sh` | Target case directory | Copy interpolation files, rename them for the target run, and update the target `input_chapsim.ini`. |
+| `prepost/input_generator/setup_chapsim_interp_step1.sh` | Source case directory | Prepare the source case for interpolation, generate interpolation output, and create `input_chapsim_tgt.ini` |
+| `prepost/input_generator/setup_chapsim_interp_step2.sh` | Target case directory | Transfer interpolation files, rename for target execution, and update target `input_chapsim.ini` |
 
 ## When to Use This Workflow
 
-Use this route when:
+Use this workflow when:
 
-- The source and target have the same geometry family and topology, for example
-  channel-to-channel or pipe-to-pipe.
-- The target mesh differs in `ncx`, `ncy`, `ncz`, `istret`, `rstret`, or domain
-  lengths such as `lxx`, `lyt`, `lyb`, and `lzz`.
-- The target case should be initialized from a physically developed source
-  solution rather than from a synthetic initial field.
+- Source and target share identical geometry family and topology (e.g., channel-to-channel or pipe-to-pipe)
+- Target mesh differs in resolution (`ncx`, `ncy`, `ncz`), stretching parameters (`istret`, `rstret`), or domain extents (`lxx`, `lyt`, `lyb`, `lzz`)
+- Target initialization requires a physically developed source solution rather than synthetic initial conditions
 
-Do not use it to convert between unrelated topologies, for example channel to
-pipe, or between incompatible physics choices without checking the generated
-fields carefully.
+Avoid this workflow for conversions between unrelated topologies (e.g., channel-to-pipe) or incompatible physics selections without careful validation of interpolated fields.
 
 ## Step 1: Prepare the Source Case
 
 From the source case directory, run:
 
 ```bash
-bash /home/weiwang/Work_RSDevelopment/1_CHAPSim/CHAPSim2/prepost/input_generator/setup_chapsim_interp_step1.sh
+bash /path/to/CHAPSim2/prepost/input_generator/setup_chapsim_interp_step1.sh
 ```
 
 The script requires `input_chapsim.ini` in the current directory. It creates a
@@ -63,20 +55,17 @@ istret= ...
 rstret= ...
 ```
 
-After running the script, run the source case in serial mode, using one MPI
-rank. The source run should finish successfully and write `domain0_*` files in
-`1_data/`.
+After script execution, run the source case in serial (single-rank MPI) mode. Upon successful completion, the source case should generate `domain0_*` files in `1_data/`.
 
 ## Step 2: Prepare the Target Case
 
 Create or enter the target case directory, then run:
 
 ```bash
-bash /home/weiwang/Work_RSDevelopment/1_CHAPSim/CHAPSim2/prepost/input_generator/setup_chapsim_interp_step2.sh
+bash /path/to/CHAPSim2/prepost/input_generator/setup_chapsim_interp_step2.sh
 ```
 
-When prompted, give the path to the completed source case from Step 1. The script
-checks that the source directory contains:
+When prompted, provide the path to the completed source case from Step 1. The script validates that the source directory contains required files:
 
 - `1_data/`
 - `input_chapsim.ini`

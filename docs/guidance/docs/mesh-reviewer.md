@@ -1,15 +1,12 @@
 # Mesh Stretching Reviewer
 
-CHAPSim2 includes an interactive viewer for checking one-dimensional
-y-direction mesh stretching before running a case:
+CHAPSim2 includes an interactive visualization tool for examining one-dimensional y-direction mesh stretching before case execution:
 
 ```text
 prepost/mesh_reviewer/mesh_stretching_viewer.py
 ```
 
-The viewer mirrors the stretching mappings used by `geometry.f90` and helps
-inspect physical node locations, the mapping from computational coordinate
-`eta` to physical coordinate `y`, and local mesh spacing.
+This tool implements the stretching mappings used by `geometry.f90` and enables inspection of physical node locations, the computational-to-physical coordinate transformation, and local mesh spacing distributions.
 
 ## Run the Viewer
 
@@ -37,14 +34,14 @@ safe route.
 
 ## Command-Line Options
 
-| Option | Values | Meaning |
+| Option | Accepted values | Definition |
 | --- | --- | --- |
-| `--method` | `3fmd`, `tanh`, `powerlaw` | Stretching law to inspect. |
-| `--location` | `centre`, `two-sides`, `bottom`, `top` | Where points are clustered. |
-| `--n` | integer, 5 to 216 | Number of node points in the viewer. |
-| `--rstret` | real, 0.001 to 1.0 | Stretching factor. Smaller values usually cluster more strongly. |
-| `--lyb` | real | Lower physical y bound. |
-| `--lyt` | real | Upper physical y bound. Must be greater than `lyb`. |
+| `--method` | `3fmd`, `tanh`, `powerlaw` | Stretching law (3-point finite-difference, hyperbolic tangent, or power-law) |
+| `--location` | `centre`, `two-sides`, `bottom`, `top` | Point clustering location |
+| `--n` | integer, 5 to 216 | Number of grid points in visualization |
+| `--rstret` | real, 0.001 to 1.0 | Stretching parameter (smaller values increase clustering strength) |
+| `--lyb` | real | Physical lower y boundary |
+| `--lyt` | real | Physical upper y boundary (must exceed `lyb`) |
 
 ## Notes on Supported Modes
 

@@ -7,22 +7,39 @@ script.
 
 ## Prerequisites
 
-CHAPSim2 is a Fortran DNS solver with MPI parallelism and FFT-based components.
+CHAPSim2 is a Fortran Direct Numerical Simulation (DNS) solver with MPI parallelism and FFT-based components.
 A working build environment normally needs:
 
-- A Fortran compiler, for example `gfortran` version 10 or newer.
-- An MPI implementation with Fortran support.
-- Standard build tools such as `make`.
-- The bundled or locally available 2DECOMP&FFT dependency.
+- A Fortran compiler (gfortran version 10 or newer, or compatible Fortran 90 compiler)
+- An MPI implementation with Fortran support (OpenMPI, MPICH, or compatible)
+- Standard build tools: `make` and optionally `cmake`
+- The bundled 2decomp-fft library dependency
 
-On a Debian/Ubuntu workstation, the base compiler tools can be installed with:
+### Platform-Specific Installation
+
+**Debian/Ubuntu workstation:**
 
 ```bash
 sudo apt-get update
-sudo apt-get install gfortran make
+sudo apt-get install gfortran make cmake openmpi-bin libopenmpi-dev
 ```
 
-On an HPC system, prefer the site-provided compiler and MPI modules.
+**macOS (using Homebrew):**
+
+```bash
+brew install gcc cmake open-mpi
+```
+
+**HPC systems:**
+
+Prefer the site-provided compiler and MPI modules. Load them via your module system:
+
+```bash
+module load compiler/gcc
+module load mpi/openmpi
+```
+
+Consult your HPC documentation for available compiler and MPI versions.
 
 
 ## Download
@@ -36,39 +53,77 @@ cd CHAPSim2
 
 From the repository root:
 
+1. Make the build script executable:
+
 ```bash
-./build_make.sh
+chmod +x build_chapsim.sh
 ```
 
-The training workflow uses the compiled solver from the build tree when running
-cases under `tests/`.
+2. Run the build script:
 
-## Run a Short Test Case
+```bash
+./build_chapsim.sh
+```
 
-Choose a small case under `tests/`, inspect `input_chapsim.ini`, then run with a
-small MPI size:
+The script will prompt you for configuration options:
+- Whether to refresh and rebuild the 2decomp-fft library
+- Whether to run `make clean` before compilation
+- Whether to build in debug mode
+
+Upon successful completion, the compiled executable `CHAPSim` will be available in the `bin/` directory.
+
+The compiled solver from the build tree is used when running test cases under `tests/`.
+
+## Run Tests
+
+### Regression and Smoke Tests
+
+To execute comprehensive validation of all test cases:
+
+```bash
+./run_regression.sh
+```
+
+This runs automated regression testing with metrics validation. Comparison tolerances are defined in `tests/tools/tolerances.json`.
+
+### Manual Test Case
+
+To run a single test case manually:
 
 ```bash
 cd tests/<case_name>
-mpirun -np 4 $PATH/CHAPSim2/bin/chapsim
+mpirun -np 4 ../../../bin/CHAPSim
 ```
 
-For quick smoke tests, the solver can shorten the final iteration through the
-environment variable `CHAPSIM_NITER`:
+Inspect `input_chapsim.ini` in the test directory to understand the case configuration.
+
+### Quick Smoke Test
+
+For rapid validation, limit iterations using the environment variable:
 
 ```bash
-CHAPSIM_NITER=20 mpirun -np 4 $PATH/CHAPSim2/bin/chapsim
+CHAPSIM_NITER=20 mpirun -np 4 ../../../bin/CHAPSim
 ```
 
-## What to Check
+## Verifying Your Installation
 
-During a first run, monitor:
+During a first run, monitor the solver output for:
 
-- Whether the input sections are read in order without errors.
-- CFL and time-step diagnostics.
-- Mass conservation messages.
-- Boundary-condition warnings.
-- Restart, visualisation, and statistics files appearing at the requested
-  frequencies.
+- Input section parsing success without errors
+- Appropriate Courant–Friedrichs–Lewy (CFL) and time-step values
+- Global mass conservation diagnostics
+- Boundary-condition configuration status
+- Timely creation of restart, visualization, and statistics outputs
 
-For input-file details, see [CHAPSim Input File Guide](input-file.md).
+Review the timestamped log file for comprehensive diagnostics, warnings, and errors.
+
+For input-file details and configuration options, see [CHAPSim Input File Guide](input-file.md).
+
+## Next Steps
+
+Once installation is complete:
+
+1. Review the [Project Structure](../index.md#project-structure) to understand the repository layout
+2. Examine test cases in `tests/` to learn configuration patterns
+3. Use `prepost/autoinput/` for Python scripts to generate input files
+4. Use `prepost/useful_scripts/run_local.sh` to set up and run your own simulations

@@ -1,18 +1,16 @@
 # CHAPSim2 User Guide
 
-CHAPSim2 is a high-fidelity DNS solver for canonical wall-bounded flows and
-related thermo-fluid configurations. It supports isothermal flow, thermal and
-variable-property flow, and MHD cases in Cartesian and cylindrical geometries.
+CHAPSim2 is a high-fidelity Direct Numerical Simulation (DNS) solver for incompressible flow and heat transfer in canonical wall-bounded and related configurations. It supports isothermal flow, thermal and variable-property flow, and magnetohydrodynamic (MHD) cases in Cartesian and cylindrical geometries.
 
 The user-facing workflow is:
 
 1. Build the solver.
-2. Start from an existing case under `tests/` or generate an input file with the
-   Python tools in `prepost/input_generator/`.
-3. Edit `input_chapsim.ini` for the target geometry, physics, mesh, and output.
-4. Run the solver with MPI.
-5. Check logs, CFL/mass conservation diagnostics, restart files, visualisation,
-   and statistics.
+2. Select or generate an input configuration file using:
+   - An existing case from `tests/`, or
+   - Python tools in `prepost/autoinput/` for custom configurations.
+3. Edit `input_chapsim.ini` to specify geometry, physics, mesh, and output requirements.
+4. Execute the solver with MPI parallelization.
+5. Monitor diagnostics: logs, CFL/mass conservation metrics, restart files, visualization, and statistics.
 
 ## Documentation Structure
 
@@ -29,22 +27,22 @@ The user-facing workflow is:
 
 ## Recommended Reading Path
 
-New users should start with installation, then run or copy a benchmark case.
-While editing `input_chapsim.ini`, keep the input-file guide open and use the
-mesh reviewer to check y-direction stretching. After the first successful run,
-inspect monitor histories and visualisation output before trusting statistics.
-Use the mesh-restart workflow when moving a developed field to a refined or
-resized mesh, and use smoke/regression tests when changing code or
-input-generation logic.
+New users should:
+1. Start with [Installation and First Run](installation.md)
+2. Execute or copy a benchmark case
+3. Edit `input_chapsim.ini` while referencing the [CHAPSim Input File Guide](input-file.md)
+4. Use the [Mesh Stretching Reviewer](mesh-reviewer.md) to validate grid stretching
+5. After the first successful run, inspect monitor histories and visualization output before interpreting statistics
+6. Use the [Mesh-Restart Workflow](mesh-restart.md) when refining or resizing grids with a developed flow field
+7. Apply smoke/regression tests when modifying code or input-generation logic
 
-## Source Tree Orientation
+## Repository Layout
 
-- `src/`: main Fortran solver source.
-- `build/`: build output and compiled solver location.
-- `tests/`: regression and smoke-test cases with ready-to-edit input files.
-- `examples/`: example-case tooling and visualisation scripts.
-- `prepost/`: input-generation and pre/post-processing utilities.
-- `docs/`: user guidance and generated code-structure documentation.
+- `src/`: Main Fortran solver source code
+- `build/`: Build output and compiled solver location
+- `tests/`: Regression and smoke-test cases with ready-to-edit input files
+- `examples/`: Example postprocessing scripts and reference data
+- `prepost/`: Input-generation and pre/post-processing utilities
+- `docs/`: User guidance and generated code-structure documentation
 
-The generated FORD code-structure reference is kept separately under
-`docs/code_structure/`.
+The generated FORD code-structure reference is maintained separately under `docs/code_structure/`.

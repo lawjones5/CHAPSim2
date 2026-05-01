@@ -1,26 +1,21 @@
 # Postprocessing and Output Data
 
-CHAPSim2 writes several classes of output. The best postprocessing route depends
-on whether you need restart data, flow-field visualisation, monitor histories, or
-statistical profiles.
+CHAPSim2 produces several classes of output. The postprocessing approach depends on whether restart data, flow-field visualization, monitor histories, or statistical profiles are required.
 
 ## Output Folders
 
 | Folder | Main content | Typical use |
 | --- | --- | --- |
-| `1_data/` | Restart/checkpoint data and domain files | Restarting, interpolation, wall-unit postprocessing, and low-level data checks. |
-| `2_visu/` | Visualisation files, commonly XDMF/HDF-style outputs | ParaView or VisIt inspection, field slices, and flow snapshots. |
-| `3_monitor/` | Monitor history files and plotting scripts | Bulk quantities, point probes, convergence checks, and transient diagnostics. |
-| `4_check/` | Mesh and setup check outputs | Mesh quality, grid distribution, and early validation plots. |
+| `1_data/` | Restart/checkpoint data and domain files | Restart initialization, mesh interpolation, wall-unit post-processing, and low-level field validation |
+| `2_visu/` | Visualization files (typically XDMF/HDF5 format) | ParaView or VisIt inspection, field slices, and instantaneous flow snapshots |
+| `3_monitor/` | Monitor history files and plotting scripts | Bulk quantities, point probes, convergence verification, and transient diagnostics |
+| `4_check/` | Mesh and setup validation outputs | Grid quality assessment, spatial distribution verification, and early validation |
 
-Not every case writes every folder. Output depends on the switches and
-frequencies in `[io]`, `[statistics]`, and related input-file sections.
+Not all simulations produce every folder. Output availability depends on the switches and frequencies defined in `[io]`, `[statistics]`, and related input-file sections.
 
 ## Visualisation Data
 
-Visualisation is controlled mainly by `visu_idim`, `visu_nfre`, and
-`visu_nskip` in the input file. Full-domain and plane outputs can be opened in
-ParaView or VisIt when XDMF files are present.
+Visualization is controlled primarily by `visu_idim`, `visu_nfre`, and `visu_nskip` in the input file. Full-domain and plane outputs can be visualized in ParaView or VisIt when XDMF format files are present.
 
 Common example scripts:
 
@@ -37,8 +32,7 @@ run it from the folder containing the output files.
 
 ## Monitor Data
 
-Monitor output is useful for deciding whether a run is healthy before expensive
-statistics are trusted. The examples include:
+Monitor output is useful for assessing run health before expensive statistics accumulation is performed. Reference examples include:
 
 | Script | Purpose |
 | --- | --- |
@@ -57,19 +51,16 @@ Recommended checks:
 
 ## Statistics Levels
 
-The input variable `stat_level` controls how much statistical output is gathered.
-Use the lowest level that contains the quantities you need, because higher
-levels can increase memory, I/O, and postprocessing cost.
+The input variable `stat_level` controls the extent of statistical information collected. Select the minimum level that contains required quantities, as higher levels increase memory, I/O, and post-processing costs.
 
-| `stat_level` | Meaning | Typical use |
+| `stat_level` | Content | Typical use |
 | --- | --- | --- |
-| `0` | Statistics disabled | Startup tests, mesh checks, and short smoke runs. |
-| `1` | Basic mean quantities | Mean-flow development and light monitoring. |
-| `2` | Second-order statistics | Reynolds stresses and most wall-bounded turbulence profiles. |
-| `3` | Extended statistics where supported | Detailed budgets or advanced diagnostics. |
+| `0` | Statistics disabled | Initial setup verification, mesh validation, and short test runs |
+| `1` | Basic mean quantities | Mean-flow development and preliminary monitoring |
+| `2` | Second-order statistics | Reynolds stresses and wall-bounded turbulence statistics |
+| `3` | Extended statistics (where supported) | Detailed budgets and advanced diagnostics |
 
-Use `stat_istart`, `stat_nskip`, and related sampling controls to avoid
-collecting statistics during the initial transient.
+Control sampling behavior with `stat_istart`, `stat_nskip`, and related parameters to ensure statistics are collected only after the transient initial condition phase.
 
 ## Mesh and Setup Checks
 
@@ -87,18 +78,16 @@ Case-local copies also exist, for example:
 Check near-wall spacing, stretching smoothness, and whether the physical domain
 matches the intended geometry.
 
-## Practical Workflow
+## Recommended Workflow
 
-1. Run a short case and inspect log diagnostics.
-2. Plot monitor histories from `3_monitor/`.
-3. Check mesh and initial condition outputs from `4_check/`.
-4. Open XDMF visualisation outputs from `2_visu/`.
-5. Start statistics only after the flow is developed.
-6. Use the closest example plotting script as a template for final profiles.
+1. Execute a short test case and review log diagnostics
+2. Plot monitor histories from `3_monitor/`
+3. Inspect mesh and initial condition outputs from `4_check/`
+4. Open XDMF visualization outputs from `2_visu/`
+5. Enable statistics collection only after flow development is complete
+6. Use the closest example plotting script as a template for profile analysis
 
-For mounted filesystems, figure saving can occasionally fail with an I/O error.
-In that case, save figures to a local temporary directory first and copy them
-back after the filesystem is stable.
+**Note on mounted filesystems:** Figure saving can occasionally fail with I/O errors on remote or mounted file systems. A robust approach is to save figures to a local temporary directory first, verify completion, and copy to the case directory when the file system is stable.
 
 For interactive tuning of the y-direction stretching before a run, see the
 [Mesh Stretching Reviewer](mesh-reviewer.md).

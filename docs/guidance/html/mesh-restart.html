@@ -139,36 +139,36 @@
 <div class="nav-section"><span>Methodology</span><a href="methodology.html">Methodology</a></div>
 <div class="nav-section"><span>Troubleshooting</span><a href="troubleshooting.html">Troubleshooting</a></div><a class="doc-home" href="../../index.html">Documentation Home</a></nav>
       <article>
-<h1>Restarting on a Different Mesh</h1>
-<p>This workflow is used when a case should continue from an existing solution but the target case uses a different mesh or box size with the same topology. Typical uses are mesh refinement, mesh coarsening, or changing the domain length while keeping the same flow configuration.</p>
+<h1>Mesh-Restart Interpolation Workflow</h1>
+<p>This procedure enables simulation continuation from an existing converged solution while employing a different mesh or domain size with identical topology. Typical applications include grid refinement, grid coarsening, or domain-size modification while preserving the original flow configuration.</p>
 <p>The helper scripts are:</p>
 <table><thead><tr>
 <th>Script</th>
-<th>Run location</th>
+<th>Execution location</th>
 <th>Purpose</th>
 </tr></thead><tbody>
 <tr>
 <td><code>prepost/input_generator/setup_chapsim_interp_step1.sh</code></td>
 <td>Source case directory</td>
-<td>Prepare the source case for interpolation output and create <code>input_chapsim_tgt.ini</code>.</td>
+<td>Prepare the source case for interpolation, generate interpolation output, and create <code>input_chapsim_tgt.ini</code></td>
 </tr>
 <tr>
 <td><code>prepost/input_generator/setup_chapsim_interp_step2.sh</code></td>
 <td>Target case directory</td>
-<td>Copy interpolation files, rename them for the target run, and update the target <code>input_chapsim.ini</code>.</td>
+<td>Transfer interpolation files, rename for target execution, and update target <code>input_chapsim.ini</code></td>
 </tr>
 </tbody></table>
 <h2>When to Use This Workflow</h2>
-<p>Use this route when:</p>
+<p>Use this workflow when:</p>
 <ul>
-<li>The source and target have the same geometry family and topology, for example channel-to-channel or pipe-to-pipe.</li>
-<li>The target mesh differs in <code>ncx</code>, <code>ncy</code>, <code>ncz</code>, <code>istret</code>, <code>rstret</code>, or domain lengths such as <code>lxx</code>, <code>lyt</code>, <code>lyb</code>, and <code>lzz</code>.</li>
-<li>The target case should be initialized from a physically developed source solution rather than from a synthetic initial field.</li>
+<li>Source and target share identical geometry family and topology (e.g., channel-to-channel or pipe-to-pipe)</li>
+<li>Target mesh differs in resolution (<code>ncx</code>, <code>ncy</code>, <code>ncz</code>), stretching parameters (<code>istret</code>, <code>rstret</code>), or domain extents (<code>lxx</code>, <code>lyt</code>, <code>lyb</code>, <code>lzz</code>)</li>
+<li>Target initialization requires a physically developed source solution rather than synthetic initial conditions</li>
 </ul>
-<p>Do not use it to convert between unrelated topologies, for example channel to pipe, or between incompatible physics choices without checking the generated fields carefully.</p>
+<p>Avoid this workflow for conversions between unrelated topologies (e.g., channel-to-pipe) or incompatible physics selections without careful validation of interpolated fields.</p>
 <h2>Step 1: Prepare the Source Case</h2>
 <p>From the source case directory, run:</p>
-<pre><code class="language-bash">bash /home/weiwang/Work_RSDevelopment/1_CHAPSim/CHAPSim2/prepost/input_generator/setup_chapsim_interp_step1.sh</code></pre>
+<pre><code class="language-bash">bash /path/to/CHAPSim2/prepost/input_generator/setup_chapsim_interp_step1.sh</code></pre>
 <p>The script requires <code>input_chapsim.ini</code> in the current directory. It creates a backup named <code>input_chapsim.ini.bak</code>, then updates the source input file:</p>
 <table><thead><tr>
 <th>Section</th>
@@ -209,11 +209,11 @@ ncy= ...
 ncz= ...
 istret= ...
 rstret= ...</code></pre>
-<p>After running the script, run the source case in serial mode, using one MPI rank. The source run should finish successfully and write <code>domain0_*</code> files in <code>1_data/</code>.</p>
+<p>After script execution, run the source case in serial (single-rank MPI) mode. Upon successful completion, the source case should generate <code>domain0_*</code> files in <code>1_data/</code>.</p>
 <h2>Step 2: Prepare the Target Case</h2>
 <p>Create or enter the target case directory, then run:</p>
-<pre><code class="language-bash">bash /home/weiwang/Work_RSDevelopment/1_CHAPSim/CHAPSim2/prepost/input_generator/setup_chapsim_interp_step2.sh</code></pre>
-<p>When prompted, give the path to the completed source case from Step 1. The script checks that the source directory contains:</p>
+<pre><code class="language-bash">bash /path/to/CHAPSim2/prepost/input_generator/setup_chapsim_interp_step2.sh</code></pre>
+<p>When prompted, provide the path to the completed source case from Step 1. The script validates that the source directory contains required files:</p>
 <ul>
 <li><code>1_data/</code></li>
 <li><code>input_chapsim.ini</code></li>

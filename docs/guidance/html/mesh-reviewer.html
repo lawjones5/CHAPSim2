@@ -140,9 +140,9 @@
 <div class="nav-section"><span>Troubleshooting</span><a href="troubleshooting.html">Troubleshooting</a></div><a class="doc-home" href="../../index.html">Documentation Home</a></nav>
       <article>
 <h1>Mesh Stretching Reviewer</h1>
-<p>CHAPSim2 includes an interactive viewer for checking one-dimensional y-direction mesh stretching before running a case:</p>
+<p>CHAPSim2 includes an interactive visualization tool for examining one-dimensional y-direction mesh stretching before case execution:</p>
 <pre><code class="language-text">prepost/mesh_reviewer/mesh_stretching_viewer.py</code></pre>
-<p>The viewer mirrors the stretching mappings used by <code>geometry.f90</code> and helps inspect physical node locations, the mapping from computational coordinate <code>eta</code> to physical coordinate <code>y</code>, and local mesh spacing.</p>
+<p>This tool implements the stretching mappings used by <code>geometry.f90</code> and enables inspection of physical node locations, the computational-to-physical coordinate transformation, and local mesh spacing distributions.</p>
 <h2>Run the Viewer</h2>
 <p>From the repository root:</p>
 <pre><code class="language-bash">python3 prepost/mesh_reviewer/mesh_stretching_viewer.py</code></pre>
@@ -158,38 +158,38 @@
 <h2>Command-Line Options</h2>
 <table><thead><tr>
 <th>Option</th>
-<th>Values</th>
-<th>Meaning</th>
+<th>Accepted values</th>
+<th>Definition</th>
 </tr></thead><tbody>
 <tr>
 <td><code>--method</code></td>
 <td><code>3fmd</code>, <code>tanh</code>, <code>powerlaw</code></td>
-<td>Stretching law to inspect.</td>
+<td>Stretching law (3-point finite-difference, hyperbolic tangent, or power-law)</td>
 </tr>
 <tr>
 <td><code>--location</code></td>
 <td><code>centre</code>, <code>two-sides</code>, <code>bottom</code>, <code>top</code></td>
-<td>Where points are clustered.</td>
+<td>Point clustering location</td>
 </tr>
 <tr>
 <td><code>--n</code></td>
 <td>integer, 5 to 216</td>
-<td>Number of node points in the viewer.</td>
+<td>Number of grid points in visualization</td>
 </tr>
 <tr>
 <td><code>--rstret</code></td>
 <td>real, 0.001 to 1.0</td>
-<td>Stretching factor. Smaller values usually cluster more strongly.</td>
+<td>Stretching parameter (smaller values increase clustering strength)</td>
 </tr>
 <tr>
 <td><code>--lyb</code></td>
 <td>real</td>
-<td>Lower physical y bound.</td>
+<td>Physical lower y boundary</td>
 </tr>
 <tr>
 <td><code>--lyt</code></td>
 <td>real</td>
-<td>Upper physical y bound. Must be greater than <code>lyb</code>.</td>
+<td>Physical upper y boundary (must exceed <code>lyb</code>)</td>
 </tr>
 </tbody></table>
 <h2>Notes on Supported Modes</h2>

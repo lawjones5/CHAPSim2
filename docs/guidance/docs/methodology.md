@@ -32,21 +32,18 @@ always check the run log for final interpreted values.
 
 ## Mesh and Stretching
 
-Wall-normal or radial resolution is controlled by the `[mesh]` section. The main
-choices are:
+Wall-normal or radial resolution is controlled by the `[mesh]` section. Available options include:
 
-- no stretching;
-- centre, two-side, bottom-side, or top-side clustering;
-- five-mode spectral, tanh, or power-law stretching method.
+- **No stretching**: uniform grid spacing
+- **Geometric clustering**: centre, two-side, bottom-side, or top-side clustering
+- **Spectral element stretching**: three-point finite-difference (3-point FD), hyperbolic tangent (tanh), or power-law methods
 
 Use the [Mesh Stretching Reviewer](mesh-reviewer.md) to inspect a candidate mesh
 before launching production runs.
 
 ## Boundary Conditions and Driving
 
-Periodic wall-bounded cases normally use a driving-force or flow-rate control
-mode. Inlet/outlet cases should usually use database or prescribed inlet
-conditions and avoid periodic driving.
+Periodic wall-bounded cases typically employ either pressure-gradient driving or flow-rate control. Inlet/outlet cases should use external boundary conditions (database or prescribed inlet profiles) and avoid periodic driving to maintain consistent external forcing.
 
 The input guide documents the boundary-condition IDs and common combinations:
 

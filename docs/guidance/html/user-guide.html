@@ -139,31 +139,31 @@
 <div class="nav-section"><span>Methodology</span><a href="methodology.html">Methodology</a></div>
 <div class="nav-section"><span>Troubleshooting</span><a href="troubleshooting.html">Troubleshooting</a></div><a class="doc-home" href="../../index.html">Documentation Home</a></nav>
       <article>
-<h1>User Guide and How-To&#x27;s</h1>
-<p>This section collects practical workflows used after the solver is built. The pages are ordered roughly as they appear in a normal case-development cycle.</p>
+<h1>User Guide and How-To Workflows</h1>
+<p>This section documents practical workflows employed after solver compilation. The content is organized according to the typical case-development lifecycle.</p>
 <h2>Case Preparation</h2>
 <ul>
-<li><a href="input-file.html">CHAPSim Input File Guide</a>: meaning, type, and valid values for <code>input_chapsim.ini</code> variables.</li>
-<li><a href="mesh-reviewer.html">Mesh Stretching Reviewer</a>: interactive y-mesh stretching viewer for choosing <code>rstret</code>, stretching method, and clustering location.</li>
+<li><a href="input-file.html">CHAPSim Input File Guide</a>: Complete reference for variable definitions, data types, identifiers, and validation rules for <code>input_chapsim.ini</code></li>
+<li><a href="mesh-reviewer.html">Mesh Stretching Reviewer</a>: Interactive visualization tool for y-direction mesh analysis, including stretching parameter optimization and clustering location selection</li>
 </ul>
-<h2>Running and Restarting</h2>
+<h2>Case Execution and Continuation</h2>
 <ul>
-<li><a href="mesh-restart.html">Restarting on a Different Mesh</a>: two-step interpolation workflow for restarting from a source case onto a target mesh with the same topology.</li>
-<li><a href="testing.html">Regression and Smoke Tests</a>: short health checks, standard and extended regression suites, and reference-metric updates.</li>
+<li><a href="mesh-restart.html">Mesh-Restart Interpolation</a>: Two-step workflow for field interpolation when restarting from a source case onto a target mesh with equivalent topology</li>
+<li><a href="testing.html">Regression and Smoke Tests</a>: Rapid validation procedures, comprehensive regression suites, and reference-metric management</li>
 </ul>
 <h2>Output and Analysis</h2>
 <ul>
-<li><a href="postprocessing.html">Postprocessing and Output Data</a>: output folders, visualisation, monitor histories, statistics levels, and example plotting scripts.</li>
-<li><a href="troubleshooting.html">Troubleshooting</a>: common practical issues with browser previews, missing tools, mounted filesystems, restart setup, and regression metrics.</li>
+<li><a href="postprocessing.html">Postprocessing and Output Data</a>: Output folder organization, visualization workflows, monitor history analysis, statistics collection strategies, and reference plotting scripts</li>
+<li><a href="troubleshooting.html">Troubleshooting</a>: Solutions for common issues including documentation access, missing dependencies, filesystem-related problems, restart configuration, and metric validation</li>
 </ul>
-<h2>Suggested Workflow</h2>
+<h2>Recommended Workflow</h2>
 <ol>
-<li>Start from <a href="benchmark-cases.html">Benchmark and Example Cases</a>.</li>
-<li>Edit the input file with the <a href="input-file.html">CHAPSim Input File Guide</a>.</li>
-<li>Review the y-mesh before long runs.</li>
-<li>Run a short smoke-style case and inspect monitors.</li>
-<li>Enable statistics only after the initial transient.</li>
-<li>Use regression checks when changing source code or input-generation logic.</li>
+<li>Select a starting configuration from <a href="benchmark-cases.html">Benchmark and Example Cases</a></li>
+<li>Configure the case using the <a href="input-file.html">CHAPSim Input File Guide</a></li>
+<li>Validate grid stretching with the <a href="mesh-reviewer.html">Mesh Stretching Reviewer</a> before long simulations</li>
+<li>Execute a short diagnostic test case and examine monitor diagnostics</li>
+<li>Enable statistics collection only after flow development is complete</li>
+<li>Apply regression testing when modifying core solver logic or input-generation procedures</li>
 </ol>
       </article>
     </div>

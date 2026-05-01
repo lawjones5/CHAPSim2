@@ -1,15 +1,13 @@
 # Troubleshooting
 
-This page collects common setup, documentation, run, and postprocessing issues.
-Use it as a first stop before changing solver settings.
+This page provides solutions for common setup, execution, and post-processing issues encountered during CHAPSim2 usage. Consult this section before modifying solver parameters.
 
 ## Documentation Opens as Raw Markdown
 
-If Chrome shows Markdown source text instead of a formatted page, open the
-generated HTML version:
+If Chrome displays raw Markdown text instead of formatted HTML, access the compiled HTML documentation from the repository root:
 
 ```bash
-google-chrome /home/weiwang/Work_RSDevelopment/1_CHAPSim/CHAPSim2/docs/index.html
+google-chrome docs/guidance/html/index.html
 ```
 
 Then choose **User Guidance**. The browser-facing pages are under:
@@ -24,18 +22,17 @@ The Markdown source files are still kept under:
 docs/guidance/docs/
 ```
 
-After editing a Markdown source file, regenerate the local HTML preview with:
+To regenerate the local HTML preview after editing source Markdown:
 
 ```bash
 python3 docs/guidance/build_static.py
 ```
 
-This route does not require MkDocs.
+This procedure does not require MkDocs.
 
 ## MkDocs Is Not Installed
 
-MkDocs is optional. The dependency-free static builder above is enough for local
-preview in a browser. Use MkDocs only when you want the full Material theme site.
+MkDocs is optional. A dependency-free static HTML builder is available for local browser preview. Employ MkDocs only when the complete Material theme documentation site is required.
 
 ## Figure Saving Fails on a Mounted Filesystem
 

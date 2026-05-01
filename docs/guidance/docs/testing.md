@@ -3,18 +3,17 @@
 The `tests/` directory contains ready-to-run cases and helper scripts for quick
 health checks and numerical regression checks.
 
-Use smoke tests for fast confidence after build or input-generation changes. Use
-regression tests before merging solver, discretisation, I/O, or physics changes.
+Use smoke tests for rapid validation after build or input-generation changes. Use regression tests before merging solver, discretization, I/O, or physics modifications.
 
 ## Test Scripts
 
 | Script | Purpose |
 | --- | --- |
-| `tests/run_smoke.sh` | Runs a short 10-iteration subset of representative cases. |
-| `tests/run_regression.sh` | Runs or checks standard/extended regression suites against reference metrics. |
-| `tests/update_reference.sh` | Replaces `reference.json` files with newly generated metrics. Use only after intentional validated changes. |
-| `tests/tools/check_metrics.py` | Compares `regression_test_metrics.json` with `reference.json` using tolerances. |
-| `tests/tools/tolerances.json` | Stores metric comparison tolerances. |
+| `tests/run_smoke.sh` | Execute a brief 10-iteration subset of representative cases for rapid validation |
+| `tests/run_regression.sh` | Run or validate standard/extended regression suites against reference metrics |
+| `tests/update_reference.sh` | Replace `reference.json` files with newly generated metrics (use only after validated changes) |
+| `tests/tools/check_metrics.py` | Compare `regression_test_metrics.json` against `reference.json` using specified tolerances |
+| `tests/tools/tolerances.json` | Metric comparison tolerance specifications |
 
 ## Smoke Tests
 
@@ -25,43 +24,32 @@ cd tests
 bash run_smoke.sh
 ```
 
-The smoke suite currently targets a short representative set:
-
-- `tgv_iso`
-- `channel_iso_inout`
-- `channel_scp_inout_Tw`
-- `annular_scp_inout_Tw`
-- `pipe_scp_inout_Tw`
-
-The script sets `RUN_MODE=smoke` and runs each case with
-`CHAPSIM_NITER=10`. This is intended to catch build failures, missing files, bad
-input generation, and early runtime errors. It is not a substitute for a
-statistically converged validation run.
+The smoke suite is designed to detect build failures, missing files, invalid input generation, and early runtime errors. It is not intended as a substitute for statistically converged production validation.
 
 ## Regression Tests
 
-From the `tests/` directory:
+From the `tests/` directory, execute:
 
 ```bash
 cd tests
 bash run_regression.sh
 ```
 
-The script supports two modes:
+The script supports two operational modes:
 
-| Mode | Meaning |
+| Mode | Behavior |
 | --- | --- |
-| `run` | Run each case, wait for `regression_test_metrics.json`, then compare metrics. |
-| `check` | Skip solver execution and compare existing metrics only. |
+| `run` | Execute each case, await `regression_test_metrics.json`, then validate metrics |
+| `check` | Skip solver execution and validate existing metrics only |
 
-It also supports two suites:
+Two test suites are available:
 
-| Suite | Meaning |
+| Suite | Scope |
 | --- | --- |
-| `standard` | Smaller default set used for routine checks. |
-| `extended` | Larger set covering additional thermal, periodic, inlet/outlet, annular, and pipe cases. |
+| `standard` | Compact default set for routine validation |
+| `extended` | Comprehensive set covering thermal, periodic, inlet/outlet, annular, and pipe cases |
 
-In continuous integration, defaults are used without interactive prompts.
+In continuous integration environments, defaults are applied without interactive user prompts.
 
 ## Reference Metrics
 
@@ -85,24 +73,18 @@ python3 tests/tools/check_metrics.py \
 
 ## Updating References
 
-Only update references after confirming that the numerical change is intentional
-and physically acceptable.
+Update references only after confirming that any numerical changes are intentional and physically validated.
 
 ```bash
 cd tests
 bash update_reference.sh
 ```
 
-This copies each available `regression_test_metrics.json` to `reference.json`.
-Review the resulting diff before committing.
+This operation copies each available `regression_test_metrics.json` to `reference.json`. Review the resulting version-control diff before committing.
 
-## Recommended Policy
+## Recommended Testing Policy
 
-- After editing input-generation tools: run smoke tests and at least the affected
-  generated case.
-- After editing I/O, restart, mesh, or boundary-condition logic: run smoke tests
-  plus the standard regression suite.
-- After editing numerical schemes or physics models: run the extended regression
-  suite and inspect representative monitor histories.
-- Before updating references: keep a note explaining why the new metrics are
-  expected.
+- **Input-generation tool modifications**: Execute smoke tests and at least the affected generated cases
+- **I/O, restart, mesh, or boundary-condition modifications**: Execute smoke tests plus the standard regression suite
+- **Numerical scheme or physics model modifications**: Execute the extended regression suite and inspect representative monitor histories
+- **Reference metric updates**: Document the rationale explaining why new metrics are expected

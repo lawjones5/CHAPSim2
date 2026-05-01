@@ -140,14 +140,20 @@
 <div class="nav-section"><span>Troubleshooting</span><a href="troubleshooting.html">Troubleshooting</a></div><a class="doc-home" href="../../index.html">Documentation Home</a></nav>
       <article>
 <h1>CHAPSim2 User Guide</h1>
-<p>CHAPSim2 is a high-fidelity DNS solver for canonical wall-bounded flows and related thermo-fluid configurations. It supports isothermal flow, thermal and variable-property flow, and MHD cases in Cartesian and cylindrical geometries.</p>
+<p>CHAPSim2 is a high-fidelity Direct Numerical Simulation (DNS) solver for incompressible flow and heat transfer in canonical wall-bounded and related configurations. It supports isothermal flow, thermal and variable-property flow, and magnetohydrodynamic (MHD) cases in Cartesian and cylindrical geometries.</p>
 <p>The user-facing workflow is:</p>
 <ol>
 <li>Build the solver.</li>
-<li>Start from an existing case under <code>tests/</code> or generate an input file with the Python tools in <code>prepost/input_generator/</code>.</li>
-<li>Edit <code>input_chapsim.ini</code> for the target geometry, physics, mesh, and output.</li>
-<li>Run the solver with MPI.</li>
-<li>Check logs, CFL/mass conservation diagnostics, restart files, visualisation, and statistics.</li>
+<li>Select or generate an input configuration file using:</li>
+</ol>
+<ul>
+<li>An existing case from <code>tests/</code>, or</li>
+<li>Python tools in <code>prepost/autoinput/</code> for custom configurations.</li>
+</ul>
+<ol>
+<li>Edit <code>input_chapsim.ini</code> to specify geometry, physics, mesh, and output requirements.</li>
+<li>Execute the solver with MPI parallelization.</li>
+<li>Monitor diagnostics: logs, CFL/mass conservation metrics, restart files, visualization, and statistics.</li>
 </ol>
 <h2>Documentation Structure</h2>
 <ul>
@@ -159,17 +165,26 @@
 <li><strong>Troubleshooting:</strong> <a href="troubleshooting.html">Troubleshooting</a>.</li>
 </ul>
 <h2>Recommended Reading Path</h2>
-<p>New users should start with installation, then run or copy a benchmark case. While editing <code>input_chapsim.ini</code>, keep the input-file guide open and use the mesh reviewer to check y-direction stretching. After the first successful run, inspect monitor histories and visualisation output before trusting statistics. Use the mesh-restart workflow when moving a developed field to a refined or resized mesh, and use smoke/regression tests when changing code or input-generation logic.</p>
-<h2>Source Tree Orientation</h2>
+<p>New users should:</p>
+<ol>
+<li>Start with <a href="installation.html">Installation and First Run</a></li>
+<li>Execute or copy a benchmark case</li>
+<li>Edit <code>input_chapsim.ini</code> while referencing the <a href="input-file.html">CHAPSim Input File Guide</a></li>
+<li>Use the <a href="mesh-reviewer.html">Mesh Stretching Reviewer</a> to validate grid stretching</li>
+<li>After the first successful run, inspect monitor histories and visualization output before interpreting statistics</li>
+<li>Use the <a href="mesh-restart.html">Mesh-Restart Workflow</a> when refining or resizing grids with a developed flow field</li>
+<li>Apply smoke/regression tests when modifying code or input-generation logic</li>
+</ol>
+<h2>Repository Layout</h2>
 <ul>
-<li><code>src/</code>: main Fortran solver source.</li>
-<li><code>build/</code>: build output and compiled solver location.</li>
-<li><code>tests/</code>: regression and smoke-test cases with ready-to-edit input files.</li>
-<li><code>examples/</code>: example-case tooling and visualisation scripts.</li>
-<li><code>prepost/</code>: input-generation and pre/post-processing utilities.</li>
-<li><code>docs/</code>: user guidance and generated code-structure documentation.</li>
+<li><code>src/</code>: Main Fortran solver source code</li>
+<li><code>build/</code>: Build output and compiled solver location</li>
+<li><code>tests/</code>: Regression and smoke-test cases with ready-to-edit input files</li>
+<li><code>examples/</code>: Example postprocessing scripts and reference data</li>
+<li><code>prepost/</code>: Input-generation and pre/post-processing utilities</li>
+<li><code>docs/</code>: User guidance and generated code-structure documentation</li>
 </ul>
-<p>The generated FORD code-structure reference is kept separately under <code>docs/code_structure/</code>.</p>
+<p>The generated FORD code-structure reference is maintained separately under <code>docs/code_structure/</code>.</p>
       </article>
     </div>
   </main>

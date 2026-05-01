@@ -142,40 +142,77 @@
 <h1>Installation and First Run</h1>
 <p>This page gives the minimal path from source tree to a short CHAPSim2 run. Platform-specific compiler and MPI module names vary between local machines and HPC systems, so use the commands here as a checklist rather than a universal script.</p>
 <h2>Prerequisites</h2>
-<p>CHAPSim2 is a Fortran DNS solver with MPI parallelism and FFT-based components. A working build environment normally needs:</p>
+<p>CHAPSim2 is a Fortran Direct Numerical Simulation (DNS) solver with MPI parallelism and FFT-based components. A working build environment normally needs:</p>
 <ul>
-<li>A Fortran compiler, for example <code>gfortran</code> version 10 or newer.</li>
-<li>An MPI implementation with Fortran support.</li>
-<li>Standard build tools such as <code>make</code>.</li>
-<li>The bundled or locally available 2DECOMP&amp;FFT dependency.</li>
+<li>A Fortran compiler (gfortran version 10 or newer, or compatible Fortran 90 compiler)</li>
+<li>An MPI implementation with Fortran support (OpenMPI, MPICH, or compatible)</li>
+<li>Standard build tools: <code>make</code> and optionally <code>cmake</code></li>
+<li>The bundled 2decomp-fft library dependency</li>
 </ul>
-<p>On a Debian/Ubuntu workstation, the base compiler tools can be installed with:</p>
+<h3>Platform-Specific Installation</h3>
+<p><strong>Debian/Ubuntu workstation:</strong></p>
 <pre><code class="language-bash">sudo apt-get update
-sudo apt-get install gfortran make</code></pre>
-<p>On an HPC system, prefer the site-provided compiler and MPI modules.</p>
+sudo apt-get install gfortran make cmake openmpi-bin libopenmpi-dev</code></pre>
+<p><strong>macOS (using Homebrew):</strong></p>
+<pre><code class="language-bash">brew install gcc cmake open-mpi</code></pre>
+<p><strong>HPC systems:</strong></p>
+<p>Prefer the site-provided compiler and MPI modules. Load them via your module system:</p>
+<pre><code class="language-bash">module load compiler/gcc
+module load mpi/openmpi</code></pre>
+<p>Consult your HPC documentation for available compiler and MPI versions.</p>
 <h2>Download</h2>
 <pre><code class="language-bash">git clone https://github.com/CCP-NTH/CHAPSim2.git
 cd CHAPSim2</code></pre>
 <h2>Build</h2>
 <p>From the repository root:</p>
-<pre><code class="language-bash">./build_make.sh</code></pre>
-<p>The training workflow uses the compiled solver from the build tree when running cases under <code>tests/</code>.</p>
-<h2>Run a Short Test Case</h2>
-<p>Choose a small case under <code>tests/</code>, inspect <code>input_chapsim.ini</code>, then run with a small MPI size:</p>
-<pre><code class="language-bash">cd tests/&lt;case_name&gt;
-mpirun -np 4 $PATH/CHAPSim2/bin/chapsim</code></pre>
-<p>For quick smoke tests, the solver can shorten the final iteration through the environment variable <code>CHAPSIM_NITER</code>:</p>
-<pre><code class="language-bash">CHAPSIM_NITER=20 mpirun -np 4 $PATH/CHAPSim2/bin/chapsim</code></pre>
-<h2>What to Check</h2>
-<p>During a first run, monitor:</p>
+<ol>
+<li>Make the build script executable:</li>
+</ol>
+<pre><code class="language-bash">chmod +x build_chapsim.sh</code></pre>
+<ol>
+<li>Run the build script:</li>
+</ol>
+<pre><code class="language-bash">./build_chapsim.sh</code></pre>
+<p>The script will prompt you for configuration options:</p>
 <ul>
-<li>Whether the input sections are read in order without errors.</li>
-<li>CFL and time-step diagnostics.</li>
-<li>Mass conservation messages.</li>
-<li>Boundary-condition warnings.</li>
-<li>Restart, visualisation, and statistics files appearing at the requested frequencies.</li>
+<li>Whether to refresh and rebuild the 2decomp-fft library</li>
+<li>Whether to run <code>make clean</code> before compilation</li>
+<li>Whether to build in debug mode</li>
 </ul>
-<p>For input-file details, see <a href="input-file.html">CHAPSim Input File Guide</a>.</p>
+<p>Upon successful completion, the compiled executable <code>CHAPSim</code> will be available in the <code>bin/</code> directory.</p>
+<p>The compiled solver from the build tree is used when running test cases under <code>tests/</code>.</p>
+<h2>Run Tests</h2>
+<h3>Regression and Smoke Tests</h3>
+<p>To execute comprehensive validation of all test cases:</p>
+<pre><code class="language-bash">./run_regression.sh</code></pre>
+<p>This runs automated regression testing with metrics validation. Comparison tolerances are defined in <code>tests/tools/tolerances.json</code>.</p>
+<h3>Manual Test Case</h3>
+<p>To run a single test case manually:</p>
+<pre><code class="language-bash">cd tests/&lt;case_name&gt;
+mpirun -np 4 ../../../bin/CHAPSim</code></pre>
+<p>Inspect <code>input_chapsim.ini</code> in the test directory to understand the case configuration.</p>
+<h3>Quick Smoke Test</h3>
+<p>For rapid validation, limit iterations using the environment variable:</p>
+<pre><code class="language-bash">CHAPSIM_NITER=20 mpirun -np 4 ../../../bin/CHAPSim</code></pre>
+<h2>Verifying Your Installation</h2>
+<p>During a first run, monitor the solver output for:</p>
+<ul>
+<li>Input section parsing success without errors</li>
+<li>Appropriate Courant–Friedrichs–Lewy (CFL) and time-step values</li>
+<li>Global mass conservation diagnostics</li>
+<li>Boundary-condition configuration status</li>
+<li>Timely creation of restart, visualization, and statistics outputs</li>
+</ul>
+<p>Review the timestamped log file for comprehensive diagnostics, warnings, and errors.</p>
+<p>For input-file details and configuration options, see <a href="input-file.html">CHAPSim Input File Guide</a>.</p>
+<h2>Next Steps</h2>
+<p>Once installation is complete:</p>
+<ol>
+<li>Review the <a href="../index.md#project-structure">Project Structure</a> to understand the repository layout</li>
+<li>Examine test cases in <code>tests/</code> to learn configuration patterns</li>
+<li>Use <code>prepost/autoinput/</code> for Python scripts to generate input files</li>
+<li>Use <code>prepost/useful_scripts/run_local.sh</code> to set up and run your own simulations</li>
+</ol>
       </article>
     </div>
   </main>

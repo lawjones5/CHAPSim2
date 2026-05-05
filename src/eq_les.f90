@@ -33,6 +33,8 @@ contains
         qydz_cpp_zpencil   
         qzdz_pcc_xpencil
 
+        interpolate_velocity_gradients() ! This is a placeholder for the actual interpolation method to compute the velocity gradients at the cell centers
+
         gij(1, 1) = qxdx_ccc_xpencil
         gij(1, 2) = qxdy_ppc_xpencil
         gij(1, 3) = qxdz_pcp_xpencil
@@ -53,6 +55,8 @@ contains
         ! find Sij = 0.5 * (gij + gji)
 
         real(wp) :: S(3, 3)
+
+        ! S = (gij + transpose(gij)) / 2.0
 
         Sxx = qxdx_ccc_xpencil
         Sxy = 0.5 * (qxdy_ccc_xpencil + qydx_ppc_xpencil)
@@ -115,7 +119,7 @@ contains
 
     end subroutine calculate_eddy_viscosity
 
-    subroutine calculate_les(visc)
+    subroutine calculate_les_wale(visc)
         ! Calculate the LES viscous terms and update the momentum equations
         call calculate_cell_grad()
         call calculate_stress_tensor()
@@ -126,6 +130,17 @@ contains
 
         visc = visc + nu_t
 
-    end subroutine calculate_les
+    end subroutine calculate_les_wale
 
+    subroutine calculate_les_smag(arg1,  arg2)
+        
+        call calculate_cell_grad()
+        call calculate_stress_tensor()
+        call calculate_stress_tensor_square()
+        
+        mag_S = sqrt(2 * Ssqr)
+        nu_t_smag = (Cs * delta)**2 * mag_S
+        visc = visc + nu_t_smag
+
+    end subroutine calculate_les_smag
 end module les_mod

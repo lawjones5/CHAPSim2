@@ -795,7 +795,7 @@ contains
 #ifdef DEBUG_STEPS
       write(*,*) 'fbcy_m', fbcy_c4c(1, 1:4, 1)
 #endif
-      mu_ccc_xpencil = opt_visc
+      mu_ccc_xpencil = opt_visc 
       call transpose_x_to_y(mu_ccc_xpencil, mu_ccc_ypencil, dm%dccc)
       call transpose_y_to_z(mu_ccc_ypencil, mu_ccc_zpencil, dm%dccc)
       !
@@ -2543,6 +2543,12 @@ contains
       visc = fl%mVisc
       call Calculate_drhodt(fl, dm, isub)
     end if
+
+    if (dm%is_les) then
+      call calculate_les_wale()
+      visc = visc + fl%tVisc
+    end if
+
     ! to set up convective outlet b.c.
     call compute_convective_outlet_flow(fl, dm, isub)
     ! Main Momentum RHS

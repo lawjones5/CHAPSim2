@@ -31,7 +31,7 @@ contains
         allocate(SD  (dm%dccc%xsz(1), dm%dccc%xsz(2), dm%dccc%xsz(3), 3, 3))
         allocate(WALE_invariants(dm%dccc%xsz(1), dm%dccc%xsz(2), dm%dccc%xsz(3)))
         allocate(nu_t           (dm%dccc%xsz(1), dm%dccc%xsz(2), dm%dccc%xsz(3)))
-        call alloc_x(fl%tVisc, dm%dccc) ; fl%tVisc = ZERO
+        allocate(fl%tVisc       (dm%dccc%xsz(1), dm%dccc%xsz(2), dm%dccc%xsz(3))) ; fl%tVisc = ZERO
 
         les_initialized = .true.
     end subroutine init_les
@@ -201,11 +201,11 @@ contains
         call calculate_WALE_tensor()
         call calculate_WALE_invariants()
         call calculate_eddy_viscosity_wale(dm)
-
+        
         if (allocated(fl%dDens)) then
-            fl%tVisc = nu_t * fl%dDens
+            fl%tVisc = nu_t * fl%dDens  ! Density only allocated if running with variable properties
         else
-            fl%tVisc = nu_t
+            fl%tVisc = nu_t             ! For isothermal flows
         end if
 
     end subroutine calculate_les_wale

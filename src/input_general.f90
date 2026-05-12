@@ -856,10 +856,10 @@ contains
         read(inputUnit, *, iostat = ioerr) varname, domain(1:nxdomain)%is_les
         if(domain(1)%is_les .and. nrank == 0) then
           do i = 1, nxdomain
-            write (*, wrtfmt1l) 'LES model active?', domain(i)%is_les
+            write (*, wrtfmt1l) 'LES WALE model enabled?', domain(i)%is_les
           end do
         else if(nrank == 0) then
-          call Print_note_msg(' LES is not active. ')
+          call Print_note_msg(' LES is not enabled. ')
         end if
       !----------------------------------------------------------------------------------------------------------
       ! [simcontrol]

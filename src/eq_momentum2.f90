@@ -2516,6 +2516,7 @@ contains
     use eq_energy_mod
     use find_max_min_ave_mod
     use io_restart_mod
+    use les_mod
     use mpi_mod
     use parameters_constant_mod
     use solver_tools_mod
@@ -2545,7 +2546,7 @@ contains
     end if
 
     if (dm%is_les) then
-      call calculate_les_wale()
+      call calculate_les_wale(fl, dm)
       visc = visc + fl%tVisc
     end if
 

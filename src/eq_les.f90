@@ -1,10 +1,24 @@
 module les_mod
     use, intrinsic :: iso_fortran_env, only: wp => real64
-    implicit none
-    private :: initialize_les, calculate_cell_grad, calculate_stress_tensor, calculate_stress_tensor_square
-    private :: calculate_WALE_tensor, calculate_WALE_invariants
+    use boundary_conditions_mod
+    use operations
+    use parameters_constant_mod
+    use transpose_extended_mod
+    use udf_type_mod
 
-    real(WP), dimension( dm%dccc%xsz(1), dm%dccc%xsz(2), dm%dccc%xsz(3), 3, 3 ) :: S, Ssqr, SD
+    implicit none
+    private :: init_les, calculate_cell_grad, calculate_stress_tensor, calculate_stress_tensor_square
+    private :: calculate_wale_tensor, calculate_wale_invariants, calculate_eddy_viscosity_wale
+
+    real, allocatable :: S(:,:,:,:,:)
+    real, allocatable :: SD(:,:,:,:,:)
+    real, allocatable :: dudx(:,:,:,:,:)
+
+    real, allocatable :: Ssqr(:,:,:)
+    real, allocatable :: wale_invariants(:,:,:)
+    real, allocatable :: nu_t(:,:,:)
+    real, allocatable :: trace_dudx2(:,:,:)
+    
     
     public :: calculate_les_wale
     public :: calculate_les_smag
@@ -12,15 +26,65 @@ module les_mod
     logical :: les_initialized = .false.
 
 contains
-    subroutine init_les()
+    subroutine init_les(dm)
         ! Initialize LES parameters and variables
+        implicit none
+        type(t_domain), intent(in) :: dm
+        allocate(S(dm%dccc%xsz(1), dm%dccc%xsz(2), dm%dccc%xsz(3), 3, 3))
+        allocate(SD(dm%dccc%xsz(1), dm%dccc%xsz(2), dm%dccc%xsz(3), 3, 3))
+        allocate(Ssqr(dm%dccc%xsz(1), dm%dccc%xsz(2), dm%dccc%xsz(3)))
+        allocate(wale_invariants(dm%dccc%xsz(1), dm%dccc%xsz(2), dm%dccc%xsz(3)))
+        allocate(nu_t(dm%dccc%xsz(1), dm%dccc%xsz(2), dm%dccc%xsz(3)))
+        allocate(trace_dudx2(dm%dccc%xsz(1), dm%dccc%xsz(2), dm%dccc%xsz(3)))
+        allocate(dudx(dm%dccc%xsz(1), dm%dccc%xsz(2), dm%dccc%xsz(3), 3, 3))
+        
+        ! S = ZERO+
+        ! SD = ZERO
+        ! Ssqr = ZERO
+        ! wale_invariants = ZERO
+        ! nu_t = ZERO
+        ! trace_dudx2 = ZERO
+        ! dudx = ZERO
         
         les_initialized = .true.
     end subroutine init_les
 
-    subroutine calculate_cell_grad()
-        ! Calculate or import the gradient of the velocity field for LES
-        !find gij
+    subroutine calculate_cell_grad(fl, dm)
+    use boundary_conditions_mod
+    use operations
+    use parameters_constant_mod
+    use transpose_extended_mod
+    use udf_type_mod
+    implicit none 
+    type(t_domain), intent(in) :: dm
+    type(t_flow),   intent(inout) :: fl
+    !
+    real(WP), dimension( dm%dccc%xsz(1), dm%dccc%xsz(2), dm%dccc%xsz(3), 3 ) :: uccc
+    real(WP), dimension( dm%dccc%xsz(1), dm%dccc%xsz(2), dm%dccc%xsz(3), 3, 3 ) :: dudx
+    real(WP), dimension( dm%dccc%xsz(1), dm%dccc%xsz(2), dm%dccc%xsz(3) ) :: accc_xpencil
+    real(WP), dimension( dm%dpcc%xsz(1), dm%dpcc%xsz(2), dm%dpcc%xsz(3) ) :: apcc_xpencil
+    real(WP), dimension( dm%dppc%xsz(1), dm%dppc%xsz(2), dm%dppc%xsz(3) ) :: appc_xpencil 
+    real(WP), dimension( dm%dcpc%xsz(1), dm%dcpc%xsz(2), dm%dcpc%xsz(3) ) :: acpc_xpencil 
+    real(WP), dimension( dm%dccp%xsz(1), dm%dccp%xsz(2), dm%dccp%xsz(3) ) :: accp_xpencil
+    real(WP), dimension( dm%dpcp%xsz(1), dm%dpcp%xsz(2), dm%dpcp%xsz(3) ) :: apcp_xpencil
+    real(WP), dimension( dm%dccc%ysz(1), dm%dccc%ysz(2), dm%dccc%ysz(3) ) :: accc_ypencil, accc1_ypencil
+    real(WP), dimension( dm%dccp%ysz(1), dm%dccp%ysz(2), dm%dccp%ysz(3) ) :: accp_ypencil
+    real(WP), dimension( dm%dpcc%ysz(1), dm%dpcc%ysz(2), dm%dpcc%ysz(3) ) :: apcc_ypencil
+    real(WP), dimension( dm%dppc%ysz(1), dm%dppc%ysz(2), dm%dppc%ysz(3) ) :: appc_ypencil
+    real(WP), dimension( dm%dcpc%ysz(1), dm%dcpc%ysz(2), dm%dcpc%ysz(3) ) :: acpc_ypencil 
+    real(WP), dimension( dm%dcpp%ysz(1), dm%dcpp%ysz(2), dm%dcpp%ysz(3) ) :: acpp_ypencil 
+    real(WP), dimension( dm%dppc%ysz(1), 4, dm%dppc%ysz(3) ) :: fbcy_p4c
+    real(WP), dimension( dm%dcpp%ysz(1), 4, dm%dcpp%ysz(3) ) :: fbcy_c4p
+    real(WP), dimension( dm%dccc%zsz(1), dm%dccc%zsz(2), dm%dccc%zsz(3) ) :: accc_zpencil, accc1_zpencil
+    real(WP), dimension( dm%dccp%zsz(1), dm%dccp%zsz(2), dm%dccp%zsz(3) ) :: accp_zpencil
+    real(WP), dimension( dm%dpcc%zsz(1), dm%dpcc%zsz(2), dm%dpcc%zsz(3) ) :: apcc_zpencil
+    real(WP), dimension( dm%dpcp%zsz(1), dm%dpcp%zsz(2), dm%dpcp%zsz(3) ) :: apcp_zpencil
+    real(WP), dimension( dm%dcpp%zsz(1), dm%dcpp%zsz(2), dm%dcpp%zsz(3) ) :: acpp_zpencil 
+    real(WP), dimension( dm%dcpc%zsz(1), dm%dcpc%zsz(2), dm%dcpc%zsz(3) ) :: acpc_zpencil 
+    integer :: iter
+    !
+    iter = fl%iteration
+    if(iter < dm%stat_istart) return
         !----------------------------------------------------------------------------------------------------------
         !   preparation for du_i/dx_j
         !----------------------------------------------------------------------------------------------------------
@@ -91,11 +155,14 @@ contains
     end subroutine calculate_cell_grad
 
     
-    subroutine calculate_stress_tensor()
+    subroutine calculate_stress_tensor(fl, dm)
+        use udf_type_mod
         ! Calculate the stress tensor based on the velocity gradients 
         ! find Sij = 0.5 * (gij + gji)
-
-        real(wp) :: S(3, 3)
+        implicit none
+        type(t_flow), intent(in) :: fl
+        type(t_domain), intent(in) :: dm
+        integer :: i, j
 
         ! S = (gij + transpose(gij)) / 2.0
         do i = 1, 3
@@ -106,23 +173,32 @@ contains
     end subroutine calculate_stress_tensor
 
     
-    subroutine calculate_stress_tensor_square()
+    subroutine calculate_stress_tensor_square(fl, dm)
+        use udf_type_mod
         ! Calculate the stress tensor squared based on the stress tensor
         ! find Sij * Sji
+        implicit none
+        type(t_flow), intent(in) :: fl
+        type(t_domain), intent(in) :: dm
+        integer :: i, j
         
-        do i = 1, 3
-            do j = 1, 3
-                Ssqr(:, :, :) = S(:, :, :, 1, 1)**2 + S(:, :, :, 1, 2)**2 + S(:, :, :, 1, 3)**2 &
-                                + S(:, :, :, 2, 1)**2 + S(:, :, :, 2, 2)**2 + S(:, :, :, 2, 3)**2 &
-                                + S(:, :, :, 3, 1)**2 + S(:, :, :, 3, 2)**2 + S(:, :, :, 3, 3)**2
-            end do
-        end do
+        
+        Ssqr(:, :, :) = S(:, :, :, 1, 1)**2 + S(:, :, :, 1, 2)**2 + S(:, :, :, 1, 3)**2 &
+                        + S(:, :, :, 2, 1)**2 + S(:, :, :, 2, 2)**2 + S(:, :, :, 2, 3)**2 &
+                        + S(:, :, :, 3, 1)**2 + S(:, :, :, 3, 2)**2 + S(:, :, :, 3, 3)**2
+        
     end subroutine calculate_stress_tensor_square
 
 
-    subroutine calculate_wale_tensor()
+    subroutine calculate_wale_tensor(fl, dm)
+        use udf_type_mod
         ! Calculate the WALE tensor based on the velocity gradients and the trace of the square of the velocity gradient tensor
         ! find Sij^d = 0.5 * (gij^2 + gji^2) - (1/3) * delta_ij * gkk^2)
+        implicit none
+        type(t_flow), intent(in) :: fl
+        type(t_domain), intent(in) :: dm
+        integer :: i, j
+
         trace_dudx2 = dudx(:, :, :, 1, 1)**2 + dudx(:, :, :, 2, 2)**2 + dudx(:, :, :, 3, 3)**2
 
         do i = 1, 3
@@ -143,57 +219,75 @@ contains
     end subroutine calculate_wale_tensor
 
  
-    subroutine calculate_wale_invariants()
+    subroutine calculate_wale_invariants(fl, dm, SD)
+        use udf_type_mod
         ! Calculate the WALE invariants based on the square of the WALE tensor
         ! find Sij^d * Sji^d
+        implicit none
+        type(t_flow), intent(in) :: fl
+        type(t_domain), intent(in) :: dm
+        integer :: i, j
 
-        do i = 1, 3
-            do j = 1, 3
-                WALE_invariants(:, :, :) = SD(:, :, :, 1, 1)**2 + SD(:, :, :, 1, 2)**2 + SD(:, :, :, 1, 3)**2 &
-                                            + SD(:, :, :, 2, 1)**2 + SD(:, :, :, 2, 2)**2 + SD(:, :, :, 2, 3)**2 &
-                                            + SD(:, :, :, 3, 1)**2 + SD(:, :, :, 3, 2)**2 + SD(:, :, :, 3, 3)**2
-            end do
-        end do
+
+        wale_invariants(:, :, :) = SD(:, :, :, 1, 1)**2 + SD(:, :, :, 1, 2)**2 + SD(:, :, :, 1, 3)**2 &
+                                    + SD(:, :, :, 2, 1)**2 + SD(:, :, :, 2, 2)**2 + SD(:, :, :, 2, 3)**2 &
+                                    + SD(:, :, :, 3, 1)**2 + SD(:, :, :, 3, 2)**2 + SD(:, :, :, 3, 3)**2
+        
         
     end subroutine calculate_wale_invariants
 
-    subroutine calculate_eddy_viscosity_wale()
+    subroutine calculate_eddy_viscosity_wale(fl, dm, wale_invariants, Ssqr)
+        use udf_type_mod
         ! Calculate the eddy viscosity based on the WALE invariants and the grid scale
         ! delta = (dx * dy * dz)^(1/3) or min(dx, dy, dz) or (dx^2 * dy^2 * dz^2)^(1/3)/sqrt(3)
         
         ! find nu_t = (Cw * delta)^2 * (Sij^d * Sji^d)^(3/2) / ((Sij * Sji)^(3/2) + (Sij^d * Sji^d)^(5/4))
+        implicit none
+        type(t_flow), intent(in) :: fl
+        type(t_domain), intent(in) :: dm
+        real(WP) :: Cw, delta
         
-        !needs fuction for chaning cw in input file
+        ! Cw constant for WALE model (needs function for changing cw in input file)
         Cw = 0.5
         delta = (dm%h(1) * dm%h(2) * dm%h(3))**(1.0/3.0)
 
-        nu_t = (Cw * delta)**2 * (WALE_invariants)**(3.0/2.0) / ((Ssqr)**(3.0/2.0) + (WALE_invariants)**(5.0/4.0))
+        nu_t = (Cw * delta)**2 * (wale_invariants)**(3.0/2.0) / ((Ssqr)**(3.0/2.0) + (wale_invariants)**(5.0/4.0))
 
-    end subroutine calculate_eddy_viscosity
+    end subroutine calculate_eddy_viscosity_wale
 
-    subroutine calculate_les_wale(visc)
+    subroutine calculate_les_wale(fl, dm)
+        use udf_type_mod
         ! Calculate the LES viscous terms and update the momentum equations
-        call calculate_cell_grad()
-        call calculate_stress_tensor()
-        call calculate_stress_tensor_square()
-        call calculate_WALE_tensor()
-        call calculate_WALE_invariants()
-        call calculate_eddy_viscosity()
-
-        nu_t
-        fl%tVisc = nu_t * fl$dDens
+        implicit none
+        type(t_flow), intent(inout) :: fl
+        type(t_domain), intent(in) :: dm
+        if (.not. les_initialized) call init_les(dm)
+        
+        call calculate_cell_grad(fl, dm)
+        call calculate_stress_tensor(fl, dm)
+        call calculate_stress_tensor_square(fl, dm)
+        call calculate_wale_tensor(fl, dm)
+        call calculate_wale_invariants(fl, dm, SD)
+        call calculate_eddy_viscosity_wale(fl, dm)
+        
+        fl%tVisc = nu_t * fl%dDens
 
     end subroutine calculate_les_wale
 
-    subroutine calculate_les_smag()
+    ! subroutine calculate_les_smag(fl, dm)
+    !     use udf_type_mod
+    !     ! Smagorinsky LES model (placeholder for future implementation)
+    !     implicit none
+    !     type(t_flow), intent(inout) :: fl
+    !     type(t_domain), intent(in) :: dm
         
-        ! call calculate_cell_grad()
-        ! call calculate_stress_tensor()
-        ! call calculate_stress_tensor_square()
+    !     ! call calculate_cell_grad()
+    !     ! call calculate_stress_tensor()
+    !     ! call calculate_stress_tensor_square()
         
-        ! mag_S = sqrt(2 * Ssqr)
-        ! nu_t_smag = (Cs * delta)**2 * mag_S
-        ! visc = visc + nu_t_smag
+    !     ! mag_S = sqrt(2 * Ssqr)
+    !     ! nu_t_smag = (Cs * delta)**2 * mag_S
+    !     ! visc = visc + nu_t_smag
 
-    end subroutine calculate_les_smag
+    ! end subroutine calculate_les_smag
 end module les_mod

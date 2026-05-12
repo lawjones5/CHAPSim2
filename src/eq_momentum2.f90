@@ -2544,8 +2544,10 @@ contains
       call Calculate_drhodt(fl, dm, isub)
     end if
 
+    dm%is_les = .true.  ! for testing purpose, to be removed later.
+
     if (dm%is_les) then
-      call calculate_les_wale()
+      call calculate_les_wale(fl, dm)
       visc = visc + fl%tVisc
     end if
 

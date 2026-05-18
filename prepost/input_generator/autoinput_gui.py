@@ -6,11 +6,16 @@ from tkinter import ttk, messagebox
 import configparser
 import math
 from enum import Enum
+from pathlib import Path
 
 # Constants
 PI = round(math.pi, 6)
 TWO_PI = 2.0 * PI
 DEFAULT_FILENAME = "input_chapsim_gui.ini"
+DEFAULT_VISU_SKIP = "1,1,1"
+DEFAULT_STAT_SKIP = "1,1,1"
+WALL_BC_CASES = {1, 3, 5}
+LOGO_PATH = Path(__file__).resolve().parents[1] / "chapsim_logo.png"
 
 
 class Case(Enum):
@@ -74,6 +79,9 @@ def bool_to_string(value):
 class CustomConfigParser(configparser.ConfigParser):
     """Custom ConfigParser that formats output with space after '='."""
 
+    def __init__(self):
+        super().__init__(interpolation=None)
+
     def write(self, fp):
         for section in self.sections():
             fp.write(f"[{section}]\n")
@@ -87,6 +95,8 @@ class CHAPSimGUI:
         self.root = root
         self.root.title("CHAPSim2 Input Generator")
         self.root.geometry("1100x850")
+
+        self.create_logo_header()
 
         # Create notebook for tabs
         self.notebook = ttk.Notebook(root)
@@ -125,6 +135,30 @@ class CHAPSimGUI:
         ttk.Button(button_frame, text="Exit", command=root.quit).pack(
             side=tk.RIGHT, padx=5
         )
+
+    def create_logo_header(self):
+        """Display the CHAPSim logo when the PNG asset is available."""
+        self.logo_image = None
+        if not LOGO_PATH.exists():
+            return
+
+        try:
+            self.logo_image = tk.PhotoImage(file=str(LOGO_PATH))
+            max_width = 360
+            if self.logo_image.width() > max_width:
+                factor = math.ceil(self.logo_image.width() / max_width)
+                self.logo_image = self.logo_image.subsample(factor, factor)
+
+            header = ttk.Frame(self.root)
+            header.pack(fill=tk.X, padx=10, pady=(10, 0))
+            ttk.Label(header, image=self.logo_image).pack(side=tk.LEFT)
+            ttk.Label(
+                header,
+                text="CHAPSim2 Input Generator",
+                font=("Arial", 16, "bold"),
+            ).pack(side=tk.LEFT, padx=12)
+        except tk.TclError:
+            self.logo_image = None
 
     def create_labeled_input(
         self, parent, label_text, default_value, row, col=0, input_type="str", width=20
@@ -307,26 +341,39 @@ class CHAPSimGUI:
         )
 
         self.velo1, self.velo1_w = self.create_labeled_input(
-            tab, "Initial velocity X", 0.0, 2
+            tab, "Initial velocity X", 0.0, 3
         )
         self.velo2, self.velo2_w = self.create_labeled_input(
-            tab, "Initial velocity Y", 0.0, 3
+            tab, "Initial velocity Y", 0.0, 4
         )
         self.velo3, self.velo3_w = self.create_labeled_input(
-            tab, "Initial velocity Z", 0.0, 4
+            tab, "Initial velocity Z", 0.0, 5
         )
         self.noiselevel, self.noiselevel_w = self.create_labeled_input(
-            tab, "Noise level (0-1)", 0.25, 5
+            tab, "Noise level (0-1)", 0.25, 6
         )
         self.ren, self.ren_w = self.create_labeled_input(
-            tab, "Reynolds number", 2800, 6
+            tab, "Reynolds number", 2800, 7
         )
         self.reni, self.reni_w = self.create_labeled_input(
-            tab, "Initial Reynolds number", 20000, 7
+            tab, "Initial Reynolds number", 20000, 8
         )
         self.nreni, self.nreni_w = self.create_labeled_input(
-            tab, "Iterations for initial Re", 10000, 8
+            tab, "Iterations for initial Re", 10000, 9
         )
+
+        init_options = [
+            "1:Intrpl",
+            "2:Random",
+            "3:Inlet",
+            "4:Given",
+            "5:Poiseuille",
+            "6:Function",
+        ]
+        self.initfl, self.initfl_w = self.create_labeled_input(
+            tab, "Flow initialization", "5:Poiseuille", 2, 0, "choice"
+        )
+        self.initfl_w["values"] = init_options
 
         self.on_restart_changed()
 
@@ -337,6 +384,15 @@ class CHAPSimGUI:
             return
             
         case_num = self.icase.get()
+
+        if hasattr(self, "initfl"):
+            if case_num == Case.TGV3D.value:
+                self.initfl.set("6:Function")
+                self.set_enabled(self.initfl_w, False)
+            else:
+                if self.initfl.get().startswith("6"):
+                    self.initfl.set("5:Poiseuille")
+                self.set_enabled(self.initfl_w, not self.is_restart.get())
         
         # Update noise level visibility
         if case_num == Case.TGV3D.value:
@@ -368,6 +424,8 @@ class CHAPSimGUI:
         self.set_enabled(self.velo1_w, not enabled)
         self.set_enabled(self.velo2_w, not enabled)
         self.set_enabled(self.velo3_w, not enabled)
+        if hasattr(self, "initfl_w"):
+            self.set_enabled(self.initfl_w, not enabled and self.icase.get() != Case.TGV3D.value)
         
         case_num = self.icase.get()
         if case_num != Case.TGV3D.value:
@@ -437,6 +495,22 @@ class CHAPSimGUI:
             tab, "Initial temperature (K)", 645.15, 7
         )
 
+        self.buffer_inlet, self.buffer_inlet_w = self.create_labeled_input(
+            tab, "Inlet thermal buffer length", 0.0, 8
+        )
+        self.buffer_outlet, self.buffer_outlet_w = self.create_labeled_input(
+            tab, "Outlet thermal buffer length", 0.0, 9
+        )
+        self.use_qw_ramp, self.use_qw_ramp_w = self.create_labeled_input(
+            tab, "Enable wall heat-flux ramp?", 0, 10, 0, "bool"
+        )
+        self.qw_ramp_start, self.qw_ramp_start_w = self.create_labeled_input(
+            tab, "Heat-flux ramp start iteration", 0, 11
+        )
+        self.qw_ramp_end, self.qw_ramp_end_w = self.create_labeled_input(
+            tab, "Heat-flux ramp end iteration", 0, 12
+        )
+
         self.on_thermo_changed()
 
     def on_thermo_changed(self):
@@ -449,6 +523,12 @@ class CHAPSimGUI:
         self.set_enabled(self.refT0_w, enabled)
         self.set_enabled(self.inittm_w, enabled)
         self.set_enabled(self.Tini_w, enabled)
+        self.set_enabled(self.buffer_inlet_w, enabled)
+        self.set_enabled(self.buffer_outlet_w, enabled)
+        self.set_enabled(self.use_qw_ramp_w, enabled)
+        self.set_enabled(self.qw_ramp_start_w, enabled)
+        self.set_enabled(self.qw_ramp_end_w, enabled)
+        self.update_bc_defaults()
 
     def create_mhd_tab(self):
         """MHD settings tab."""
@@ -778,6 +858,7 @@ class CHAPSimGUI:
         self.iinlet_var, self.iinlet_w = self._create_bc_combo(
             scrollable_frame, inlet_options, "1", row, 1
         )
+        self.iinlet_w.bind("<<ComboboxSelected>>", lambda e: self.update_bc_defaults())
         row += 1
 
         # Flow driving options
@@ -808,6 +889,28 @@ class CHAPSimGUI:
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
 
+    def _set_bc_entry(self, base_key, bc1, bc2, value1="0.0", value2="0.0"):
+        """Set one GUI BC row."""
+        names = {
+            BC.INTERIOR.value: "Interior",
+            BC.PERIODIC.value: "Periodic",
+            BC.SYMM.value: "Symm",
+            BC.ASYMM.value: "Asymm",
+            BC.DIRICHLET.value: "Dirichlet",
+            BC.NEUMANN.value: "Neumann",
+            BC.INTRPL.value: "Intrpl",
+            BC.CONVOL.value: "ConvOut",
+            BC.TURGEN.value: "TurGen",
+            BC.PROFL.value: "Profile",
+            BC.DATABS.value: "Database",
+            BC.PARABOLIC.value: "Parabolic",
+            BC.OTHERS.value: "Others",
+        }
+        self.bc_widgets[f"{base_key}_1"].set(f"{bc1}:{names[bc1]}")
+        self.bc_widgets[f"{base_key}_2"].set(f"{bc2}:{names[bc2]}")
+        self.bc_widgets[f"{base_key}_v1"].set(str(value1))
+        self.bc_widgets[f"{base_key}_v2"].set(str(value2))
+
     def update_bc_defaults(self):
         """Update BC defaults based on case type."""
         # Safety check - ensure BC widgets exist
@@ -815,52 +918,63 @@ class CHAPSimGUI:
             return
             
         case_num = self.icase.get()
+        iinlet = int(self.iinlet_var.get().split(":")[0])
+
+        for axis in ("x", "y", "z"):
+            self._set_bc_entry(f"ifbc{axis}_u", BC.PERIODIC.value, BC.PERIODIC.value)
+            self._set_bc_entry(f"ifbc{axis}_p", BC.PERIODIC.value, BC.PERIODIC.value)
+            self._set_bc_entry(f"ifbc{axis}_T", BC.PERIODIC.value, BC.PERIODIC.value)
         
         # Y-direction defaults
-        if case_num in [Case.CHANNEL.value, Case.DUCT.value, Case.ANNULAR.value]:
-            self.bc_widgets["ifbcy_u_1"].set("4:Dirichlet")
-            self.bc_widgets["ifbcy_u_2"].set("4:Dirichlet")
-            self.bc_widgets["ifbcy_p_1"].set("5:Neumann")
-            self.bc_widgets["ifbcy_p_2"].set("5:Neumann")
+        if case_num in WALL_BC_CASES:
+            self._set_bc_entry("ifbcy_u", BC.DIRICHLET.value, BC.DIRICHLET.value)
+            self._set_bc_entry("ifbcy_p", BC.NEUMANN.value, BC.NEUMANN.value)
+            if self.ithermo.get():
+                self._set_bc_entry(
+                    "ifbcy_T",
+                    BC.DIRICHLET.value,
+                    BC.DIRICHLET.value,
+                    self.Tini.get(),
+                    self.Tini.get(),
+                )
+            else:
+                self._set_bc_entry("ifbcy_T", BC.DIRICHLET.value, BC.DIRICHLET.value)
         elif case_num == Case.PIPE.value:
-            self.bc_widgets["ifbcy_u_1"].set("0:Interior")
-            self.bc_widgets["ifbcy_u_2"].set("4:Dirichlet")
-            self.bc_widgets["ifbcy_p_1"].set("0:Interior")
-            self.bc_widgets["ifbcy_p_2"].set("5:Neumann")
-            self.bc_widgets["ifbcy_T_1"].set("0:Interior")
-            self.bc_widgets["ifbcy_T_2"].set("1:Periodic")
+            self._set_bc_entry("ifbcy_u", BC.INTERIOR.value, BC.DIRICHLET.value)
+            self._set_bc_entry("ifbcy_p", BC.INTERIOR.value, BC.NEUMANN.value)
+            self._set_bc_entry(
+                "ifbcy_T",
+                BC.INTERIOR.value,
+                BC.NEUMANN.value if self.ithermo.get() else BC.DIRICHLET.value,
+            )
         elif case_num == Case.TGV3D.value:
-            self.bc_widgets["ifbcy_u_1"].set("1:Periodic")
-            self.bc_widgets["ifbcy_u_2"].set("1:Periodic")
-            self.bc_widgets["ifbcy_p_1"].set("1:Periodic")
-            self.bc_widgets["ifbcy_p_2"].set("1:Periodic")
+            self.iinlet_var.set("1:Periodic")
         
         # X-direction defaults
         if case_num == Case.DUCT.value:
-            self.bc_widgets["ifbcx_u_1"].set("4:Dirichlet")
-            self.bc_widgets["ifbcx_u_2"].set("4:Dirichlet")
-            self.bc_widgets["ifbcx_p_1"].set("5:Neumann")
-            self.bc_widgets["ifbcx_p_2"].set("5:Neumann")
-            self.bc_widgets["ifbcx_T_1"].set("5:Neumann")
-            self.bc_widgets["ifbcx_T_2"].set("5:Neumann")
+            self._set_bc_entry("ifbcx_u", BC.DIRICHLET.value, BC.DIRICHLET.value)
+            self._set_bc_entry("ifbcx_p", BC.NEUMANN.value, BC.NEUMANN.value)
+            self._set_bc_entry("ifbcx_T", BC.NEUMANN.value, BC.NEUMANN.value)
+
+        if iinlet != BC.PERIODIC.value and case_num != Case.TGV3D.value:
+            prefix = "ifbcz" if case_num == Case.DUCT.value else "ifbcx"
+            inlet_temp = self.Tini.get() if self.ithermo.get() else "0.0"
+            self._set_bc_entry(f"{prefix}_u", iinlet, BC.CONVOL.value)
+            self._set_bc_entry(f"{prefix}_p", BC.NEUMANN.value, BC.NEUMANN.value)
+            self._set_bc_entry(
+                f"{prefix}_T", BC.DIRICHLET.value, BC.NEUMANN.value, inlet_temp, "0.0"
+            )
+            self.idriven.set("0:NONE")
+        elif case_num == Case.DUCT.value:
             self.idriven.set("4:ZMFLUX")
+        elif case_num != Case.TGV3D.value:
+            self.idriven.set("1:XMFLUX")
         else:
-            self.bc_widgets["ifbcx_u_1"].set("1:Periodic")
-            self.bc_widgets["ifbcx_u_2"].set("1:Periodic")
-            self.bc_widgets["ifbcx_p_1"].set("1:Periodic")
-            self.bc_widgets["ifbcx_p_2"].set("1:Periodic")
-            if case_num != Case.TGV3D.value:
-                self.idriven.set("1:XMFLUX")
-            else:
-                self.idriven.set("0:NONE")
-        
-        # Z-direction defaults (mostly periodic)
-        self.bc_widgets["ifbcz_u_1"].set("1:Periodic")
-        self.bc_widgets["ifbcz_u_2"].set("1:Periodic")
-        self.bc_widgets["ifbcz_p_1"].set("1:Periodic")
-        self.bc_widgets["ifbcz_p_2"].set("1:Periodic")
-        self.bc_widgets["ifbcz_T_1"].set("1:Periodic")
-        self.bc_widgets["ifbcz_T_2"].set("1:Periodic")
+            self.idriven.set("0:NONE")
+
+        if hasattr(self, "is_read"):
+            self.is_read.set(iinlet == BC.DATABS.value and case_num != Case.TGV3D.value)
+            self.on_write_changed()
 
     def _create_bc_combo(self, parent, options, default, row, col):
         """Helper to create BC combobox."""
@@ -887,6 +1001,13 @@ class CHAPSimGUI:
             if isinstance(child, ttk.Combobox) and child.cget("textvariable") == str(self.iAccuracy):
                 child["values"] = accuracy_options
                 break
+
+        self.sponge_length, self.sponge_length_w = self.create_labeled_input(
+            tab, "Outlet sponge layer length", 0.0, 2
+        )
+        self.sponge_re, self.sponge_re_w = self.create_labeled_input(
+            tab, "Sponge layer Reynolds number", 0.0, 3
+        )
 
     def create_simcontrol_tab(self):
         """Simulation control settings tab."""
@@ -924,30 +1045,54 @@ class CHAPSimGUI:
             tab, "Start statistics from iter", 1000, 3
         )
 
+        visu_options = ["0:3-D only", "1:2-D planes only", "2:Both"]
+        self.visu_idim, self.visu_idim_w = self.create_labeled_input(
+            tab, "Visualization mode", "0:3-D only", 4, 0, "choice"
+        )
+        self.visu_idim_w["values"] = visu_options
+
+        stat_options = [
+            "1:Mean flow",
+            "2:+Reynolds stresses",
+            "3:+Turbulent budgets",
+        ]
+        self.stat_level, self.stat_level_w = self.create_labeled_input(
+            tab, "Statistics level", "3:+Turbulent budgets", 5, 0, "choice"
+        )
+        self.stat_level_w["values"] = stat_options
+
+        io_mode_options = ["0:Overwrite", "1:Skip existing", "2:Rename existing"]
+        self.io_mode, self.io_mode_w = self.create_labeled_input(
+            tab, "I/O mode", "0:Overwrite", 6, 0, "choice"
+        )
+        self.io_mode_w["values"] = io_mode_options
+
         ttk.Label(tab, text="Write outlet plane data?").grid(
-            row=4, column=0, sticky=tk.W, padx=5, pady=5
+            row=7, column=0, sticky=tk.W, padx=5, pady=5
         )
         self.is_write_check = ttk.Checkbutton(
             tab, variable=self.is_write, command=self.on_write_changed
         )
-        self.is_write_check.grid(row=4, column=1, sticky=tk.W, padx=5, pady=5)
+        self.is_write_check.grid(row=7, column=1, sticky=tk.W, padx=5, pady=5)
 
         self.wrt_read_nfre1, self.wrt_read_nfre1_w = self.create_labeled_input(
-            tab, "Plane data frequency", 1000, 5
+            tab, "Plane data frequency", 1000, 8
         )
         self.wrt_read_nfre2, self.wrt_read_nfre2_w = self.create_labeled_input(
-            tab, "Start saving from iter", 2001, 6
+            tab, "Start saving from iter", 2001, 9
         )
         self.wrt_read_nfre3, self.wrt_read_nfre3_w = self.create_labeled_input(
-            tab, "Stop saving at iter", 10000, 7
+            tab, "Stop saving at iter", 10000, 10
         )
 
         ttk.Label(tab, text="Read inlet plane data?").grid(
-            row=8, column=0, sticky=tk.W, padx=5, pady=5
+            row=11, column=0, sticky=tk.W, padx=5, pady=5
         )
         self.is_read = tk.BooleanVar(value=False)
-        self.is_read_check = ttk.Checkbutton(tab, variable=self.is_read)
-        self.is_read_check.grid(row=8, column=1, sticky=tk.W, padx=5, pady=5)
+        self.is_read_check = ttk.Checkbutton(
+            tab, variable=self.is_read, command=self.on_write_changed
+        )
+        self.is_read_check.grid(row=11, column=1, sticky=tk.W, padx=5, pady=5)
 
         self.on_write_changed()
 
@@ -1010,12 +1155,10 @@ class CHAPSimGUI:
                 initfl = Init.RESTART.value
                 irestartfrom = int(self.irestartfrom.get())
             else:
-                if case_num in [Case.CHANNEL.value, Case.DUCT.value, Case.PIPE.value, Case.ANNULAR.value]:
-                    initfl = Init.POISEUILLE.value
-                elif case_num == Case.TGV3D.value:
+                if case_num == Case.TGV3D.value:
                     initfl = Init.FUNCTION.value
                 else:
-                    initfl = Init.POISEUILLE.value
+                    initfl = int(self.initfl.get().split(":")[0])
                 irestartfrom = 0
 
             config["flow"] = {
@@ -1030,6 +1173,7 @@ class CHAPSimGUI:
 
             # Thermo
             if self.ithermo.get():
+                use_qw_ramp = self.use_qw_ramp.get()
                 config["thermo"] = {
                     "ithermo": bool_to_string(self.ithermo.get()),
                     "icht": bool_to_string(self.icht.get()),
@@ -1040,6 +1184,11 @@ class CHAPSimGUI:
                     "inittm": int(self.inittm.get().split(":")[0]),
                     "irestartfrom": 0,
                     "Tini": float(self.Tini.get()),
+                    "inout_buffer": f"{float(self.buffer_inlet.get())},{float(self.buffer_outlet.get())}",
+                    "qw_ramp": (
+                        f"{bool_to_string(use_qw_ramp)},"
+                        f"{int(self.qw_ramp_start.get())},{int(self.qw_ramp_end.get())}"
+                    ),
                 }
 
             # MHD
@@ -1077,6 +1226,14 @@ class CHAPSimGUI:
                         v2 = self.bc_widgets[f"{base_key}_v2"].get()
                         bc_dict[base_key] = f"{bc1},{bc2},{v1},{v2}"
 
+            inlet_bc = int(self.iinlet_var.get().split(":")[0])
+            if inlet_bc != BC.PERIODIC.value and case_num != Case.TGV3D.value:
+                streamwise_prefix = "ifbcz" if case_num == Case.DUCT.value else "ifbcx"
+                inlet_temp = self.Tini.get() if self.ithermo.get() else "0.0"
+                bc_dict[f"{streamwise_prefix}_u"] = f"{inlet_bc},7,0.0,0.0"
+                bc_dict[f"{streamwise_prefix}_p"] = "5,5,0.0,0.0"
+                bc_dict[f"{streamwise_prefix}_T"] = f"4,5,{inlet_temp},0.0"
+
             config["bc"] = {
                 "ifbcx_u": bc_dict.get("ifbcx_u", "1,1,0.0,0.0"),
                 "ifbcx_v": bc_dict.get("ifbcx_u", "1,1,0.0,0.0"),
@@ -1093,7 +1250,9 @@ class CHAPSimGUI:
                 "ifbcz_w": bc_dict.get("ifbcz_u", "1,1,0.0,0.0"),
                 "ifbcz_p": bc_dict.get("ifbcz_p", "1,1,0.0,0.0"),
                 "ifbcz_T": bc_dict.get("ifbcz_T", "1,1,0.0,0.0"),
-                "idriven": int(self.idriven.get().split(":")[0]),
+                "idriven": 0
+                if inlet_bc != BC.PERIODIC.value and case_num != Case.TGV3D.value
+                else int(self.idriven.get().split(":")[0]),
                 "drivenfc": float(self.drivenCf.get()),
             }
 
@@ -1103,6 +1262,7 @@ class CHAPSimGUI:
                 "iTimeScheme": 3,
                 "iAccuracy": int(self.iAccuracy.get().split(":")[0]),
                 "iviscous": 1,
+                "out_sponge_L_Re": f"{float(self.sponge_length.get())},{float(self.sponge_re.get())}",
             }
 
             # Simulation Control
@@ -1114,7 +1274,7 @@ class CHAPSimGUI:
             }
 
             # I/O
-            is_read = 1 if self.is_read.get() else 0
+            is_read = 1 if self.is_read.get() or inlet_bc == BC.DATABS.value else 0
             is_write = 1 if self.is_write.get() else 0
 
             if is_write == 0 and is_read == 0:
@@ -1125,13 +1285,15 @@ class CHAPSimGUI:
             config["io"] = {
                 "cpu_nfre": int(self.cpu_nfre.get()),
                 "ckpt_nfre": int(self.ckpt_nfre.get()),
-                "visu_idim": 0,
+                "visu_idim": int(self.visu_idim.get().split(":")[0]),
                 "visu_nfre": int(self.visu_nfre.get()),
-                "visu_nskip": "1,1,1",
+                "visu_nskip": DEFAULT_VISU_SKIP,
                 "stat_istart": int(self.stat_istart.get()),
-                "stat_nskip": "1,1,1",
+                "stat_level": int(self.stat_level.get().split(":")[0]),
+                "stat_nskip": DEFAULT_STAT_SKIP,
                 "is_wrt_read_bc": f"{bool_to_string(is_write)},{bool_to_string(is_read)}",
                 "wrt_read_nfre": wrt_read_nfre,
+                "io_mode": int(self.io_mode.get().split(":")[0]),
             }
 
             # Probe - auto-generate 5 points

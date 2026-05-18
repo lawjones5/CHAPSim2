@@ -1,26 +1,21 @@
 #################################################################################################
 # Makefile for CHAPSim2, by Wei Wang, July 2021                                                 #
-# Updated: Mar 2026 - robust stop-on-error logging with tee, portable for bash/zsh environments #
+# Updated: Mar 2026 - robust stop-on-error logging, resumable build, direct/script build support #
 # Usage:                                                                                        #
-#       make all              to make all files with default optimization                       #
-#       make cfg=gnu-g        to debug for gfortran compiler (no DEBUG_STEPS)                   #
-#       make cfg=gnu-debug    to debug for gfortran compiler (with DEBUG_STEPS)                 #
-#       make cfg=gnu-o3       to optimize with -O3                                              #
-#       make cfg=intel        to debug for intel compiler                                       #
-#       make cfg=cray         to make for cray                                                  #
-#################################################################################################
-
-#################################################################################################
-# Makefile for CHAPSim2, by Wei Wang, July 2021                                                 #
-# Updated: Mar 2026 - POSIX sh compatible, stop on error, no bash dependency                    #
+#       make all                       interactive build menu                                    #
+#       make cfg=gnu-g real-all         direct debug build without prompt                        #
+#       make cfg=gnu-debug real-all     direct debug build with DEBUG_STEPS                      #
+#       make cfg=gnu-o3 real-all        direct optimised build                                   #
+#       make cfg=intel real-all         direct Intel build                                       #
+#       make cfg=cray real-all          direct Cray build                                        #
+#       make clean                      clean build files                                        #
 #################################################################################################
 
 .SUFFIXES:
-SHELL := /bin/sh
+SHELL := /bin/bash
 .SHELLFLAGS := -ec
 .DELETE_ON_ERROR:
 
-# Program name and directories
 PROGRAM = CHAPSim
 DIR_SRC = ../src
 DIR_BIN = ../bin
@@ -28,14 +23,11 @@ DIR_OBJ = ../obj
 DIR_BLD = ../build
 DIR_LIB = ../lib/fishpack4.1
 
-# Default configuration if 'cfg' is not specified
 cfg ?= default
 
-# Detect architecture and platform
 UNAME_S := $(shell uname -s)
 UNAME_M := $(shell uname -m)
 
-# Set architecture-specific flags
 ARCH_FLAGS :=
 ifeq ($(UNAME_S),Darwin)
     ifeq ($(UNAME_M),arm64)
@@ -51,7 +43,6 @@ else
     $(info Detected: $(UNAME_S) ($(UNAME_M)))
 endif
 
-# Common Fortran Compiler Flags
 COMMON_FOPTS = $(ARCH_FLAGS) -fallow-argument-mismatch -Wno-unused -Wno-unused-dummy-argument \
                -Wno-maybe-uninitialized -fdiagnostics-color=always -Wuninitialized \
                -finit-real=snan -finit-integer=-999999 -ffpe-trap=invalid,zero,overflow \
@@ -61,7 +52,6 @@ COMMON_FOPTS = $(ARCH_FLAGS) -fallow-argument-mismatch -Wno-unused -Wno-unused-d
 
 FOPTS_WARNING = -Wunused-parameter -Wunused-dummy-argument
 
-# Compiler and flags based on configuration
 ifeq ($(cfg),gnu-g)
   FC     = mpif90
   FOPTS  = -g -O0 $(COMMON_FOPTS) $(FOPTS_WARNING)
@@ -94,18 +84,14 @@ else
   FDEBG  =
 endif
 
-# HDF5 paths
 HDF5_INC =
 HDF5_LIB =
 
-# FFT library and include paths
 INCLUDE = -I../lib/2decomp-fft/build/opt/include $(HDF5_INC)
 
-# Check for library file directly
 LIB_FILE_64 := $(wildcard ../lib/2decomp-fft/build/opt/lib64/libdecomp2d.a)
 LIB_FILE    := $(wildcard ../lib/2decomp-fft/build/opt/lib/libdecomp2d.a)
 
-# Determine which library to use
 ifneq ($(LIB_FILE_64),)
     DECOMP_LIB = ../lib/2decomp-fft/build/opt/lib64/libdecomp2d.a
     $(info Using library: lib64/libdecomp2d.a)
@@ -113,19 +99,11 @@ else ifneq ($(LIB_FILE),)
     DECOMP_LIB = ../lib/2decomp-fft/build/opt/lib/libdecomp2d.a
     $(info Using library: lib/libdecomp2d.a)
 else
-    $(error ❌ Error: libdecomp2d.a not found in lib or lib64. Run library build first!)
+    DECOMP_LIB =
 endif
 
-# Verify library is readable
-LIB_CHECK := $(shell ar -t $(DECOMP_LIB) > /dev/null 2>&1 && echo OK || echo FAIL)
-ifneq ($(LIB_CHECK),OK)
-    $(error ❌ Error: Library $(DECOMP_LIB) is corrupted or unreadable. Rebuild the library!)
-endif
-
-# Use the library file directly instead of -L/-l flags
 LIBS = $(DECOMP_LIB) $(HDF5_LIB)
 
-# Object file lists
 OBJS1 = $(addprefix $(DIR_OBJ)/, \
       modules.o \
       tools_general.o \
@@ -160,35 +138,33 @@ OBJS1 = $(addprefix $(DIR_OBJ)/, \
 
 OBJS2 = $(addprefix $(DIR_OBJ)/, fftpack.o)
 
-# Compilation flags for FFT library (Fortran 77 files)
 F77_OPTS = $(ARCH_FLAGS) -O2 -w -fdefault-real-8 -fdefault-double-8 -fallow-argument-mismatch
 
-# Total number of object files for progress display
 TOTAL_OBJS := $(words $(OBJS1) $(OBJS2))
 COUNTER = 0
 
-# Function to display compilation progress
 define progress
     $(eval COUNTER := $(shell expr $(COUNTER) + 1))
     $(eval PERCENT := $(shell expr $(COUNTER) \* 100 / $(TOTAL_OBJS)))
     @printf "(%2d/%2d) [%3d%%] Compiling %s\n" $(COUNTER) $(TOTAL_OBJS) $(PERCENT) $(notdir $<)
 endef
 
-# Default targets
 default: all
 
+# Interactive target only.
+# For scripts, use: make cfg=gnu-g real-all
 all:
-	@bash -lc '\
-		if [ "$${CHAPSIM_PROMPTED:-0}" = "1" ]; then \
-			exec "$(MAKE)" --no-print-directory real-all cfg="$(cfg)"; \
-		fi; \
+	@if [ "$(origin cfg)" = "command line" ]; then \
+		echo "Direct build requested: cfg=$(cfg)"; \
+		"$(MAKE)" --no-print-directory real-all cfg="$(cfg)"; \
+	else \
 		clean_build=no; \
 		if [ -t 0 ]; then \
 			read -r -t 10 -p "Perform a clean build of CHAPSim? (y/n) [no] (10s timeout): " ans || true; \
 			clean_build=$${ans:-no}; \
 			echo ""; \
 		else \
-			echo "Perform a clean build of CHAPSim? (y/n) [no] (10s timeout): "; \
+			echo "Non-interactive shell detected: using incremental build."; \
 		fi; \
 		echo "CHAPSim build mode: a=default, b=gnu-o3, c=gnu-g, d=gnu-debug, e=intel, f=cray, g=nvhpc-cpu"; \
 		build_mode=a; \
@@ -196,8 +172,6 @@ all:
 			read -r -t 10 -p "Select CHAPSim build mode (a,b,c,d,e,f,g) [a] (10s timeout): " mode || true; \
 			build_mode=$${mode:-a}; \
 			echo ""; \
-		else \
-			echo "Select CHAPSim build mode (a,b,c,d,e,f,g) [a] (10s timeout): "; \
 		fi; \
 		case "$${build_mode}" in \
 			a|"") chosen_cfg=default ;; \
@@ -207,15 +181,15 @@ all:
 			e) chosen_cfg=intel ;; \
 			f) chosen_cfg=cray ;; \
 			g) chosen_cfg=nvhpc-cpu ;; \
-			*) echo "Invalid build mode '\''$${build_mode}'\'' - using default (a)."; chosen_cfg=default ;; \
+			*) echo "Invalid build mode '$${build_mode}' - using default."; chosen_cfg=default ;; \
 		esac; \
 		case "$$(printf "%s" "$${clean_build}" | tr "[:upper:]" "[:lower:]")" in \
 			y|yes) "$(MAKE)" --no-print-directory clean ;; \
 		esac; \
-		exec "$(MAKE)" --no-print-directory CHAPSIM_PROMPTED=1 cfg="$${chosen_cfg}" real-all; \
-	'
+		"$(MAKE)" --no-print-directory real-all cfg="$${chosen_cfg}"; \
+	fi
 
-real-all: prep-build-log $(DIR_BIN)/$(PROGRAM)
+real-all: check-lib prep-build-log $(DIR_BIN)/$(PROGRAM)
 	@echo ""
 	@echo "========================================================================="
 	@echo "  CHAPSim2 Build System"
@@ -224,9 +198,23 @@ real-all: prep-build-log $(DIR_BIN)/$(PROGRAM)
 	@echo ""
 
 prep-build-log:
-	@rm -f build.log
+	@mkdir -p $(DIR_BLD)
+	@if [ ! -f build.log ]; then \
+		echo "Build log created: $$(date)" > build.log; \
+	else \
+		echo "" >> build.log; \
+		echo "Build resumed: $$(date)" >> build.log; \
+	fi
 
-# Main target for building the program
+check-lib:
+	@if [ -z "$(DECOMP_LIB)" ]; then \
+		echo "❌ Error: libdecomp2d.a not found in ../lib/2decomp-fft/build/opt/lib or lib64."; \
+		echo "Please build 2decomp-fft first."; \
+		exit 1; \
+	fi
+	@ar -t "$(DECOMP_LIB)" > /dev/null 2>&1 || \
+	{ echo "❌ Error: Library $(DECOMP_LIB) is corrupted or unreadable. Rebuild the library."; exit 1; }
+
 $(DIR_BIN)/$(PROGRAM): $(OBJS1) $(OBJS2)
 	@echo ""
 	@echo "========================================================================="
@@ -245,74 +233,67 @@ $(DIR_BIN)/$(PROGRAM): $(OBJS1) $(OBJS2)
 	@echo "========================================================================="
 	@echo ""
 
-# Rule to compile Fortran 90 files
 $(DIR_OBJ)/%.o: $(DIR_SRC)/%.f90
 	@mkdir -p $(@D)
 	$(call progress)
 	@$(FC) $(INCLUDE) $(FOPTS) $(FDEBG) -c $< -o $@ >> build.log 2>&1 || \
 	  { echo "❌ Compile failed for $<. Last 40 lines of build.log:"; tail -40 build.log; exit 1; }
 
-# Rule to compile Fortran 77 files
 $(DIR_OBJ)/%.o: $(DIR_LIB)/%.f
 	@mkdir -p $(@D)
 	$(call progress)
 	@$(FC) $(F77_OPTS) -c $< -o $@ >> build.log 2>&1 || \
 	  { echo "❌ Compile failed for $<. Last 40 lines of build.log:"; tail -40 build.log; exit 1; }
 
-# Verify library target
-verify-lib:
+verify-lib: check-lib
 	@echo "Verifying 2decomp library..."
-	@if [ -f "$(DECOMP_LIB)" ]; then \
-		echo "✅ Library found: $(DECOMP_LIB)"; \
-		echo "File type:"; \
-		file $(DECOMP_LIB); \
+	@echo "✅ Library found: $(DECOMP_LIB)"
+	@echo "File type:"
+	@file $(DECOMP_LIB)
+	@echo ""
+	@echo "Archive contents (first 10):"
+	@ar -t $(DECOMP_LIB) | head -10
+	@echo "..."
+	@echo "Total objects: $$(ar -t $(DECOMP_LIB) | wc -l)"
+	@if ar -t $(DECOMP_LIB) | grep -E "^/$$|^//" > /dev/null 2>&1; then \
 		echo ""; \
-		echo "Archive contents (first 10):"; \
-		ar -t $(DECOMP_LIB) | head -10; \
-		echo "..."; \
-		echo "Total objects: $$(ar -t $(DECOMP_LIB) | wc -l)"; \
-		if ar -t $(DECOMP_LIB) | grep -E "^/$$|^//" > /dev/null 2>&1; then \
-			echo ""; \
-			echo "⚠️  WARNING: Found suspicious '/' entries!"; \
-			ar -t $(DECOMP_LIB) | grep -E "^/$$|^//"; \
-		else \
-			echo ""; \
-			echo "✅ No suspicious entries found"; \
-		fi; \
+		echo "⚠️  WARNING: Found suspicious '/' entries!"; \
+		ar -t $(DECOMP_LIB) | grep -E "^/$$|^//"; \
 	else \
-		echo "❌ Library not found: $(DECOMP_LIB)"; \
-		exit 1; \
+		echo ""; \
+		echo "✅ No suspicious entries found"; \
 	fi
 
-# Clean target
 clean:
 	@echo "Cleaning built files and directories..."
 	@echo ""
 	@rm -rf $(DIR_OBJ) $(DIR_BIN)/$(PROGRAM) build.log
-	@find $(DIR_BLD) -name "*.mod" -delete -o -name "*.smod" -delete 2>/dev/null || true
+	@[ ! -d $(DIR_BLD) ] || find $(DIR_BLD) \( -name "*.mod" -o -name "*.smod" \) -delete 2>/dev/null || true
 	@echo "✅ Clean complete"
 	@echo ""
 
-# Help target
 help:
 	@echo "CHAPSim2 Makefile - Available targets:"
 	@echo ""
-	@echo "  make all              - Build with default settings (O3 optimization)"
-	@echo "  make cfg=gnu-o3       - Build with -O3 optimization"
-	@echo "  make cfg=gnu-g        - Build with debug symbols (-g -O0)"
-	@echo "  make cfg=gnu-debug    - Build with debug + DEBUG_STEPS"
-	@echo "  make cfg=intel        - Build with Intel compiler"
-	@echo "  make cfg=cray         - Build with Cray compiler"
-	@echo "  make cfg=nvhpc-cpu    - Build with NVHPC CPU config"
-	@echo "  make clean            - Remove all build artifacts"
-	@echo "  make verify-lib       - Verify 2decomp library integrity"
-	@echo "  make help             - Show this help message"
+	@echo "  make all                       - Interactive build menu"
+	@echo "  make cfg=gnu-o3 real-all        - Direct build with -O3 optimization"
+	@echo "  make cfg=gnu-g real-all         - Direct build with debug symbols (-g -O0)"
+	@echo "  make cfg=gnu-debug real-all     - Direct build with debug + DEBUG_STEPS"
+	@echo "  make cfg=intel real-all         - Direct build with Intel compiler"
+	@echo "  make cfg=cray real-all          - Direct build with Cray compiler"
+	@echo "  make cfg=nvhpc-cpu real-all     - Direct build with NVHPC CPU config"
+	@echo "  make clean                      - Remove build artifacts"
+	@echo "  make clean && make cfg=gnu-g real-all"
+	@echo "                                  - Fresh scripted debug build"
+	@echo "  make verify-lib                 - Verify 2decomp library integrity"
+	@echo "  make help                       - Show this help message"
 	@echo ""
 	@echo "Current system:"
 	@echo "  OS: $(UNAME_S)"
 	@echo "  Architecture: $(UNAME_M)"
+	@echo "  cfg: $(cfg)"
+	@echo "  Compiler: $(FC)"
 	@echo "  Library: $(DECOMP_LIB)"
 	@echo ""
 
-# Phony targets
-.PHONY: all clean default verify-lib help prep-build-log real-all
+.PHONY: all clean default verify-lib help prep-build-log real-all check-lib
